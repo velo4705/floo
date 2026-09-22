@@ -1,0 +1,479 @@
+.floo-editor {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+/* Sidebar */
+.floo-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.palette {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.palette__title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.palette__hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.palette__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  cursor: grab;
+}
+
+.palette__item:active {
+  cursor: grabbing;
+}
+
+.palette__swatch {
+  width: 26px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.palette__swatch--start {
+  border-radius: 999px;
+  background: #2e7d32;
+}
+
+.palette__swatch--end {
+  border-radius: 999px;
+  background: #c62828;
+}
+
+.palette__swatch--process {
+  border-radius: 5px;
+  background: #1976d2;
+}
+
+.palette__swatch--decision {
+  border-radius: 3px;
+  background: #ed6c02;
+  transform: rotate(45deg) scale(0.9);
+}
+
+.palette__swatch--input,
+.palette__swatch--output {
+  border-radius: 3px;
+  transform: skewX(-10deg);
+}
+
+.palette__swatch--input {
+  background: #7b1fa2;
+}
+
+.palette__swatch--output {
+  background: #00838f;
+}
+
+.palette__swatch--loop {
+  border-radius: 5px;
+  background: #ef6c00;
+}
+
+/* Sidebar footer */
+.floo-sidebar__footer {
+  padding: 12px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.floo-sidebar__btn {
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.floo-sidebar__btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.floo-sidebar__btn input {
+  display: none;
+}
+
+/* Edge label inspector — shows when a single connection is selected */
+.floo-sidebar__inspector {
+  padding: 12px;
+  border-top: 1px solid #e0e0e0;
+  background: #fff;
+}
+
+.floo-sidebar__inspector-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.floo-sidebar__inspector-route {
+  font-size: 12px;
+  color: #374151;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.floo-sidebar__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.floo-sidebar__input:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
+.floo-sidebar__inspector-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9ca3af;
+}
+
+/* Canvas */
+.floo-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Nodes */
+.floo-node {
+  position: relative;
+  width: 190px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floo-shape {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+}
+
+.floo-node--start .floo-shape,
+.floo-node--end .floo-shape {
+  border-radius: 999px;
+}
+
+.floo-node--start .floo-shape {
+  border: 2px solid #2e7d32;
+  background: #e8f5e9;
+}
+
+.floo-node--end .floo-shape {
+  border: 2px solid #c62828;
+  background: #ffebee;
+}
+
+.floo-node--process .floo-shape {
+  border: 2px solid #1976d2;
+  border-radius: 6px;
+  background: #e3f2fd;
+}
+
+.floo-node--decision {
+  width: 130px;
+  height: 130px;
+}
+
+.floo-node--decision .floo-shape {
+  inset: 25px;
+  border: 2px solid #ed6c02;
+  background: #fff3e0;
+  transform: rotate(45deg);
+  border-radius: 0;
+}
+
+.floo-node--input .floo-shape,
+.floo-node--output .floo-shape {
+  border: 2px solid;
+  border-radius: 4px;
+  transform: skewX(-10deg);
+}
+
+.floo-node--input .floo-shape {
+  border-color: #7b1fa2;
+  background: #f3e5f5;
+}
+
+.floo-node--output .floo-shape {
+  border-color: #00838f;
+  background: #e0f7fa;
+}
+
+.floo-node--loop .floo-shape {
+  border: 2px dashed #ef6c00;
+  border-radius: 6px;
+  background: #fff3e0;
+}
+
+.floo-node.is-selected .floo-shape {
+  outline: 2px solid #1e88e5;
+  outline-offset: 4px;
+}
+
+.floo-label {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #212529;
+  text-align: center;
+}
+
+.floo-handle {
+  width: 9px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #1976d2;
+}
+
+.floo-node--decision.is-selected .floo-shape {
+  outline-offset: 6px;
+}
+
+/* React Flow treats type="input"/"output" as its built-in node types and
+   injects padding, a fixed 150px width, border and white background on the
+   wrapper — which shows up as a stray box behind our skewed parallelogram.
+   We draw the shape ourselves, so strip the wrapper chrome (selection
+   feedback lives on .floo-shape.is-selected instead). */
+.react-flow__node-input,
+.react-flow__node-output {
+  padding: 0;
+  border: none;
+  background: transparent;
+  width: auto;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: inherit;
+  color: inherit;
+  text-align: inherit;
+}
+
+.react-flow__node-input.selectable:hover,
+.react-flow__node-output.selectable:hover,
+.react-flow__node-input.selectable.selected,
+.react-flow__node-output.selectable.selected,
+.react-flow__node-input.selectable:focus,
+.react-flow__node-output.selectable:focus,
+.react-flow__node-input.selectable:focus-visible,
+.react-flow__node-output.selectable:focus-visible,
+.react-flow__node-input.selected,
+.react-flow__node-output.selected,
+.react-flow__node-input:focus,
+.react-flow__node-output:focus,
+.react-flow__node-input:focus-visible,
+.react-flow__node-output:focus-visible {
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+/* MiniMap — top right */
+.react-flow__minimap {
+  top: 12px !important;
+  bottom: auto !important;
+}
+
+/* Edge labels (Yes/No/… and user-entered connection labels) */
+.react-flow__edge-text {
+  font-size: 11px;
+  font-weight: 600;
+  fill: #374151;
+}
+
+.react-flow__edge-textbg {
+  fill: #fff;
+  stroke: #e5e7eb;
+  stroke-width: 1;
+}
+
+/* Prompt panel — bottom of canvas */
+.prompt-panel {
+  position: absolute;
+  z-index: 10;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(0deg, #fff 80%, transparent);
+  border-top: 1px solid #e5e7eb;
+  transition: padding 0.2s;
+}
+
+.prompt-panel--compact {
+  padding: 12px 20px;
+}
+
+.prompt-panel__inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.prompt-panel__title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.prompt-panel--compact .prompt-panel__title {
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+.prompt-panel__subtitle {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.prompt-panel__input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.prompt-panel__textarea {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.prompt-panel__textarea:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgb(25 118 210 / 0.15);
+}
+
+.prompt-panel__submit {
+  align-self: flex-end;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #1976d2;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.prompt-panel__submit:hover:not(:disabled) {
+  background: #1565c0;
+}
+
+.prompt-panel__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.prompt-panel__error {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+.prompt-panel__tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 3px;
+  background: #1f2937;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.prompt-panel__tab {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &.is-active {
+    color: #fff;
+    background: #374151;
+  }
+}
+
+.prompt-panel__changes {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #2563eb;
+}
+
+.prompt-panel__warn {
+  margin: 8px 0 0;
+  padding: 0 0 0 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #b45309;
+  list-style: disc;
+
+  li::marker {
+    color: #d97706;
+  }
+}
+
+.prompt-panel__hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
