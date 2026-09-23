@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import {
   ReactFlow,
@@ -18,11 +18,12 @@ import type { NodeKind } from '@floo/shared'
 
 import '@xyflow/react/dist/style.css'
 
-import { isFlowchart, NODE_KINDS, setEdgeLabel, setNodeLabel, toFlowchart, toRfEdges, toRfNodes } from '../lib/adapters'
+import { isFlowchart, NODE_KINDS, refreshEdgePorts, setEdgeLabel, setNodeLabel, toFlowchart, toRfEdges, toRfNodes } from '../lib/adapters'
 import { createId, defaultLabel } from '../lib/ids'
 import { sampleFlowchart } from '../lib/sample'
 import FlooNode from '../nodes/FlooNode'
 import { EdgeInspector } from './EdgeInspector'
+import { FlooEdge } from './FlooEdge'
 import { NodeInspector } from './NodeInspector'
 import { Palette } from './Palette'
 import { PromptPanel } from './PromptPanel'
@@ -36,6 +37,10 @@ const nodeTypes = {
   output: FlooNode,
   loop: FlooNode,
   end: FlooNode,
+}
+
+const edgeTypes = {
+  default: FlooEdge,
 }
 
 const DND_MIME = 'application/floo'
@@ -56,6 +61,11 @@ function FlowEditorInner() {
 
   const selectedEdge = selectedEdgeId ? (edges.find((e) => e.id === selectedEdgeId) ?? null) : null
   const selectedNode = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId) ?? null) : null
+
+  // Re-derive port ids from live positions on every change (preserving
+  // selection/data), so loop-back geometry tracks node drags and applies to
+  // charts created before a routing rule changed — not just at import time.
+  const renderEdges = useMemo(() => refreshEdgePorts(nodes, edges), [nodes, edges])
 
   const onSelectionChange = useCallback((selection: OnSelectionChangeParams) => {
     setSelectedEdgeId(
@@ -203,8 +213,9 @@ function FlowEditorInner() {
       <div className="floo-canvas" ref={canvasRef}>
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={renderEdges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onSelectionChange={onSelectionChange}

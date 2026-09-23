@@ -6,6 +6,7 @@ import {
   PORTS,
   branchSourceHandle,
   isFlowchart,
+  refreshEdgePorts,
   setEdgeLabel,
   setNodeLabel,
   toFlowchart,
@@ -111,7 +112,7 @@ describe('adapters', () => {
     const edges = toRfEdges(flowchart)
     expect(edges[0]).toMatchObject({ id: 'e1', sourceHandle: PORTS.BOTTOM, targetHandle: PORTS.TOP })
     expect(edges[1]).toMatchObject({ id: 'e2', targetHandle: PORTS.TOP })
-    expect(edges[2]).toMatchObject({ id: 'e3', sourceHandle: PORTS.BOTTOM, targetHandle: PORTS.LEFT })
+    expect(edges[2]).toMatchObject({ id: 'e3', sourceHandle: PORTS.LEFT, targetHandle: PORTS.LEFT })
     expect(edges[3]).toMatchObject({ id: 'e4', sourceHandle: PORTS.RIGHT, targetHandle: PORTS.TOP })
   })
 
@@ -134,7 +135,7 @@ describe('adapters', () => {
     }
     const edges = toRfEdges(flowchart)
     expect(edges[1]).toMatchObject({ id: 'e2', targetHandle: PORTS.TOP })
-    expect(edges[2]).toMatchObject({ id: 'e3', sourceHandle: PORTS.BOTTOM, targetHandle: PORTS.LEFT })
+    expect(edges[2]).toMatchObject({ id: 'e3', sourceHandle: PORTS.LEFT, targetHandle: PORTS.LEFT })
     expect(edges[3]).toMatchObject({ id: 'e4', sourceHandle: PORTS.RIGHT, targetHandle: PORTS.TOP })
   })
 
@@ -176,8 +177,50 @@ describe('adapters', () => {
     const edges = toRfEdges(flowchart)
     expect(edges[0]).toMatchObject({ id: 'e1', targetHandle: PORTS.TOP })
     expect(edges[1]).toMatchObject({ id: 'e2', sourceHandle: PORTS.BOTTOM })
-    expect(edges[2]).toMatchObject({ id: 'e3', targetHandle: PORTS.LEFT })
+    expect(edges[2]).toMatchObject({ id: 'e3', targetHandle: PORTS.LEFT, sourceHandle: PORTS.BOTTOM })
     expect(edges[3]).toMatchObject({ id: 'e4', sourceHandle: PORTS.RIGHT })
+  })
+
+  it('routes a loop-back that starts below its target out of the left port', () => {
+    const flowchart: Flowchart = {
+      nodes: [
+        { id: 'p', type: 'process', label: 'Get user input', position: { x: 0, y: 0 } },
+        { id: 'l', type: 'loop', label: 'Valid?', position: { x: 200, y: 200 } },
+      ],
+      edges: [
+        { id: 'e1', source: 'p', target: 'l', label: '' },
+        { id: 'e2', source: 'l', target: 'p', label: 'True' },
+      ],
+    }
+    const edges = toRfEdges(flowchart)
+    expect(edges[0]).toMatchObject({ sourceHandle: PORTS.BOTTOM, targetHandle: PORTS.TOP })
+    expect(edges[1]).toMatchObject({ sourceHandle: PORTS.LEFT, targetHandle: PORTS.LEFT })
+  })
+
+  it('refreshEdgePorts recomputes port ids from positions while preserving edge props', () => {
+    const flowchart: Flowchart = {
+      nodes: [
+        { id: 'p', type: 'process', label: 'Get user input', position: { x: 0, y: 0 } },
+        { id: 'l', type: 'loop', label: 'Valid?', position: { x: 200, y: 200 } },
+      ],
+      edges: [
+        { id: 'e1', source: 'p', target: 'l', label: '' },
+        { id: 'e2', source: 'l', target: 'p', label: 'True' },
+      ],
+    }
+    const nodes = toRfNodes(flowchart)
+    // Simulate stale ports (bottom exit) on a selected edge.
+    const stale = toRfEdges(flowchart).map((e, i) =>
+      i === 1 ? { ...e, sourceHandle: PORTS.BOTTOM, selected: true } : e,
+    )
+    const refreshed = refreshEdgePorts(nodes, stale)
+    expect(refreshed[1]).toMatchObject({
+      sourceHandle: PORTS.LEFT,
+      targetHandle: PORTS.LEFT,
+      selected: true,
+      data: { label: 'True' },
+    })
+    expect(refreshed[0]).toEqual(stale[0])
   })
 
   it('round-trips back into the canonical Flowchart shape', () => {

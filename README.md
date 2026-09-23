@@ -79,7 +79,7 @@ Every shape exposes four ports — top, bottom, left, right:
 
 - **Top** — target (the flow's primary input)
 - **Bottom** — source (primary output); the *Yes/True* outlet on branch nodes
-- **Left** — target (secondary input); loop-back returns arrive here
+- **Left** — source *and* target for loop-back returns: a return that starts below its target leaves from the left, so the line has one clean attachment on that side instead of dipping under the node
 - **Right** — source (secondary outlet); the *No/False* outlet on branch nodes
 
 Loop-back edges are detected structurally (a back-edge in the DFS of the graph), so both `while`-style and `do-while`-style repetitions route correctly.

@@ -321,17 +321,25 @@
   bottom: auto !important;
 }
 
-/* Edge labels (Yes/No/… and user-entered connection labels) */
-.react-flow__edge-text {
-  font-size: 11px;
-  font-weight: 600;
-  fill: #374151;
+/* Edge labels (Yes/No/… and user-entered connection labels).
+   React Flow draws default labels in the edges SVG, which sits *under* the
+   node layer — so a label mid-path behind a shape was unreadable. Our
+   FlooEdge renders labels in the EdgeLabelRenderer div instead; this stacks
+   that layer above the nodes so labels always stay visible. */
+.react-flow__edgelabel-renderer {
+  z-index: 1;
 }
 
-.react-flow__edge-textbg {
-  fill: #fff;
-  stroke: #e5e7eb;
-  stroke-width: 1;
+.floo-edge-label {
+  position: absolute;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
 }
 
 /* Prompt panel — bottom of canvas */

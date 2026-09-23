@@ -38,17 +38,49 @@ const YES_LABEL = /yes|true|approve|pass|continue|again|repeat/
 const NO_LABEL = /no|false|reject|deny|fail|done|exit|stop/
 
 export function toRfEdges(flowchart: Flowchart): FlooEdge[] {
-  const loopBackIds = findLoopBackIds(flowchart)
-  return flowchart.edges.map((e, index) => ({
+  const base: FlooEdge[] = flowchart.edges.map((e) => ({
     id: e.id,
     source: e.source,
     target: e.target,
-    sourceHandle: branchSourceHandle(flowchart, e, index),
-    targetHandle: loopBackIds.has(e.id) ? PORTS.LEFT : PORTS.TOP,
     // React Flow renders the top-level `label`; data.label round-trips via toFlowchart.
     label: e.label,
     data: { label: e.label },
   }))
+  return assignEdgePorts(flowchart, base)
+}
+
+/**
+ * Recomputes source/target port ids on existing React Flow edges from their
+ * current node positions — preserving selection, styles and data. Handles are
+ * stale the moment a routing rule changes or nodes are dragged, so this runs
+ * on every render of the canvas (see FlowEditor).
+ */
+export function refreshEdgePorts(nodes: FlooNode[], edges: FlooEdge[]): FlooEdge[] {
+  return assignEdgePorts(toFlowchart(nodes, edges), edges)
+}
+
+function assignEdgePorts(flowchart: Flowchart, edges: FlooEdge[]): FlooEdge[] {
+  const loopBackIds = findLoopBackIds(flowchart)
+  const position = new Map(flowchart.nodes.map((n) => [n.id, n.position]))
+  return edges.map((e, index) => {
+    const flowEdge = flowchart.edges[index]
+    const loopBack = loopBackIds.has(e.id)
+    let sourceHandle = flowEdge ? branchSourceHandle(flowchart, flowEdge, index) : PORTS.BOTTOM
+    if (loopBack) {
+      const source = position.get(e.source)
+      const target = position.get(e.target)
+      // A return that starts below its target exits from the left instead of
+      // the bottom: one clean left-side attachment. Leaving from the bottom
+      // dipped under the node and grazed its left handle, so the line looked
+      // connected in two places (below and left) at once.
+      if (source && target && source.y > target.y) sourceHandle = PORTS.LEFT
+    }
+    return {
+      ...e,
+      sourceHandle,
+      targetHandle: loopBack ? PORTS.LEFT : PORTS.TOP,
+    }
+  })
 }
 
 /** Sets an edge's label on both the React Flow render prop and data (export path). */
@@ -60,6 +92,8 @@ export function setEdgeLabel(edges: FlooEdge[], id: string, label: string): Floo
  * Every shape exposes four ports (top/bottom/left/right). Branching nodes
  * (decision/loop) split their outlets: "Yes"/"True" edges exit the bottom,
  * "No"/"False" edges exit the right. Linear edges keep the bottom outlet.
+ * (Loop-backs that start below their target override this and exit left —
+ * see toRfEdges.)
  */
 export function branchSourceHandle(flowchart: Flowchart, edge: FlowchartEdge, index: number): Port {
   const source = flowchart.nodes.find((n) => n.id === edge.source)
