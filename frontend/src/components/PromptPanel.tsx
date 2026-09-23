@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { applyEdit, validateFlowchart } from '@floo/shared'
+import { applyEdit, isLikelyOversimplified, validateFlowchart } from '@floo/shared'
 
 import { isFlowchart, toFlowchart, toRfEdges, toRfNodes } from '../lib/adapters'
 import { layoutFlowchart } from '../lib/layout'
@@ -18,6 +18,13 @@ interface PromptPanelProps {
   setEdges: Dispatch<SetStateAction<FlooEdge[]>>
 }
 
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes === 0) return `${seconds}s`
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`
+}
+
 function describeChanges(changes: AppliedEdit['changes']): string[] {
   const parts: string[] = []
   if (changes.addedNodes.length > 0) parts.push(`Added ${changes.addedNodes.length} step${changes.addedNodes.length === 1 ? '' : 's'}.`)
@@ -33,11 +40,30 @@ export function PromptPanel({ nodes, setNodes, edges, setEdges }: PromptPanelPro
   const [prompt, setPrompt] = useState('')
   const [mode, setMode] = useState<Mode>('create')
   const [loading, setLoading] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [changes, setChanges] = useState<string[]>([])
+  const startedAtRef = useRef<number | null>(null)
 
   const hasContent = nodes.length > 0
+
+  useEffect(() => {
+    if (!loading) {
+      startedAtRef.current = null
+      setElapsed(0)
+      return
+    }
+
+    startedAtRef.current = Date.now()
+    setElapsed(0)
+    const id = window.setInterval(() => {
+      if (startedAtRef.current == null) return
+      setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000))
+    }, 250)
+
+    return () => window.clearInterval(id)
+  }, [loading])
 
   const generate = async () => {
     const trimmed = prompt.trim()
@@ -69,10 +95,29 @@ export function PromptPanel({ nodes, setNodes, edges, setEdges }: PromptPanelPro
       const data: unknown = await res.json()
       if (!isFlowchart(data)) throw new Error('The AI returned an invalid diagram.')
 
-      const validation = validateFlowchart(data)
-      setWarnings(validation.isClean ? [] : validation.warnings.map((w) => w.message))
-
+      const aid = res.headers.get('X-Floo-Aid')
       const laid = await layoutFlowchart(data)
+      const validation = validateFlowchart(data)
+      const validationWarnings = validation.isClean ? [] : validation.warnings.map((w) => w.message)
+
+      // Catch silent simplification: a detailed description that came back as a
+      // near-empty skeleton is structurally valid but semantically wrong.
+      const looksOversimplified =
+        !useEdit &&
+        !aid &&
+        isLikelyOversimplified(trimmed, laid.nodes.length) &&
+        validationWarnings.length === 0
+      setWarnings([
+        ...validationWarnings,
+        ...(aid
+          ? [`The first draft was too simple — ${aid} expanded it to match your description.`]
+          : []),
+        ...(looksOversimplified
+          ? [
+              'The diagram looks much simpler than your description — steps may have been dropped. Try regenerating, or use Edit diagram to add the missing detail.',
+            ]
+          : []),
+      ])
 
       if (useEdit) {
         const applied = applyEdit(toFlowchart(nodes, edges), laid)
@@ -136,14 +181,21 @@ export function PromptPanel({ nodes, setNodes, edges, setEdges }: PromptPanelPro
               }
             }}
           />
-          <button
-            type="button"
-            className="prompt-panel__submit"
-            onClick={() => void generate()}
-            disabled={loading || !prompt.trim()}
-          >
-            {loading ? 'Working…' : mode === 'edit' && hasContent ? 'Apply edit' : 'Generate'}
-          </button>
+          <div className="prompt-panel__submit-wrap">
+            {loading && (
+              <span className="prompt-panel__submit-timer" role="timer" aria-live="polite">
+                {formatElapsed(elapsed)}
+              </span>
+            )}
+            <button
+              type="button"
+              className="prompt-panel__submit"
+              onClick={() => void generate()}
+              disabled={loading || !prompt.trim()}
+            >
+              {mode === 'edit' && hasContent ? 'Apply edit' : 'Generate'}
+            </button>
+          </div>
         </div>
         {error && <p className="prompt-panel__error">{error}</p>}
         {changes.length > 0 && (

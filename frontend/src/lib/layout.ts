@@ -15,7 +15,7 @@ export interface LayoutOptions {
 }
 
 /** Default horizontal offset (px) for zig-zag staggering on looped charts. */
-export const ZIGZAG_STAGGER = 64
+export const ZIGZAG_STAGGER = 96
 
 export const NODE_SIZE: Record<NodeKind, { width: number; height: number }> = {
   start: { width: 150, height: 50 },
@@ -30,7 +30,7 @@ export const NODE_SIZE: Record<NodeKind, { width: number; height: number }> = {
 function toElkDefinition(flowchart: Flowchart, options: LayoutOptions) {
   // Top-down is the conventional flowchart reading order; pass 'LR' to override.
   const direction = options.direction === 'LR' ? 'RIGHT' : 'DOWN'
-  const spacing = options.spacing ?? 40
+  const spacing = options.spacing ?? 64
 
   return {
     id: 'root',
@@ -39,7 +39,7 @@ function toElkDefinition(flowchart: Flowchart, options: LayoutOptions) {
       'elk.direction': direction,
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.spacing.nodeNode': String(spacing),
-      'elk.layered.spacing.nodeNodeBetweenLayers': String(spacing * 1.8),
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(spacing * 2),
       'elk.layered.spacing.edgeNodeBetweenLayers': String(spacing),
       // Break cycles against model order so loop-back edges (which point
       // "upwards" in reading order) are the ones reversed, keeping the main

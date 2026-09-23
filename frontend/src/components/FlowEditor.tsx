@@ -18,7 +18,7 @@ import type { NodeKind } from '@floo/shared'
 
 import '@xyflow/react/dist/style.css'
 
-import { isFlowchart, NODE_KINDS, refreshEdgePorts, setEdgeLabel, setNodeLabel, toFlowchart, toRfEdges, toRfNodes } from '../lib/adapters'
+import { isFlowchart, leftPortUsage, NODE_KINDS, refreshEdgePorts, setEdgeLabel, setNodeLabel, toFlowchart, toRfEdges, toRfNodes } from '../lib/adapters'
 import { createId, defaultLabel } from '../lib/ids'
 import { sampleFlowchart } from '../lib/sample'
 import FlooNode from '../nodes/FlooNode'
@@ -66,6 +66,18 @@ function FlowEditorInner() {
   // selection/data), so loop-back geometry tracks node drags and applies to
   // charts created before a routing rule changed — not just at import time.
   const renderEdges = useMemo(() => refreshEdgePorts(nodes, edges), [nodes, edges])
+
+  // Decorate nodes with left-port usage so decisions can omit unused left handles.
+  const renderNodes = useMemo(() => {
+    const usage = leftPortUsage(renderEdges)
+    return nodes.map((node) => {
+      const flags = usage.get(node.id)
+      const leftSource = Boolean(flags?.leftSource)
+      const leftTarget = Boolean(flags?.leftTarget)
+      if (node.data.leftSource === leftSource && node.data.leftTarget === leftTarget) return node
+      return { ...node, data: { ...node.data, leftSource, leftTarget } }
+    })
+  }, [nodes, renderEdges])
 
   const onSelectionChange = useCallback((selection: OnSelectionChangeParams) => {
     setSelectedEdgeId(
@@ -212,7 +224,7 @@ function FlowEditorInner() {
       </div>
       <div className="floo-canvas" ref={canvasRef}>
         <ReactFlow
-          nodes={nodes}
+          nodes={renderNodes}
           edges={renderEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}

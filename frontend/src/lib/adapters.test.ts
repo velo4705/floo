@@ -6,6 +6,7 @@ import {
   PORTS,
   branchSourceHandle,
   isFlowchart,
+  leftPortUsage,
   refreshEdgePorts,
   setEdgeLabel,
   setNodeLabel,
@@ -114,6 +115,11 @@ describe('adapters', () => {
     expect(edges[1]).toMatchObject({ id: 'e2', targetHandle: PORTS.TOP })
     expect(edges[2]).toMatchObject({ id: 'e3', sourceHandle: PORTS.LEFT, targetHandle: PORTS.LEFT })
     expect(edges[3]).toMatchObject({ id: 'e4', sourceHandle: PORTS.RIGHT, targetHandle: PORTS.TOP })
+
+    const usage = leftPortUsage(edges)
+    expect(usage.get('l')).toEqual({ leftSource: true, leftTarget: false })
+    expect(usage.get('p')).toEqual({ leftSource: false, leftTarget: true })
+    expect(usage.get('s')).toBeUndefined()
   })
 
   it('routes a do-while True edge back into the body from the left', () => {

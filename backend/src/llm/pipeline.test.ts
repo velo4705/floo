@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { Flowchart } from '@floo/shared'
 
-import { createGenPipeline } from './pipeline.js'
+import { createGenPipeline, withOversimplifyAid } from './pipeline.js'
 
 import type { FlowchartProvider } from './adapter.js'
+import type { PipelineProvider } from './pipeline.js'
+
+const DETAILED_PROMPT = 'a'.repeat(150)
 
 function makeFlowchart(overrides: Partial<Flowchart> = {}): Flowchart {
   return {
@@ -132,6 +135,125 @@ describe('createGenPipeline', () => {
     }
     const pipeline = createGenPipeline(provider)
     await expect(pipeline.generateFlowchart({ prompt: 'x' })).rejects.toThrow(/not in the expected shape/)
+  })
+})
+
+describe('withOversimplifyAid', () => {
+  const detailedPrompt = DETAILED_PROMPT
+
+  function makePipelineBase(result: Flowchart): PipelineProvider {
+    return {
+      generateFlowchart: vi.fn().mockResolvedValue(result),
+      editFlowchart: vi.fn().mockResolvedValue(result),
+    } as unknown as PipelineProvider
+  }
+
+  function makeDetailedFlowchart(): Flowchart {
+    const ids = ['s', 'a', 'b', 'c', 'd', 'e', 't']
+    return {
+      nodes: ids.map((id, i) => ({
+        id,
+        type: i === 0 ? ('start' as const) : i === ids.length - 1 ? ('end' as const) : ('process' as const),
+        label: id,
+        position: { x: 0, y: 0 },
+      })),
+      edges: ids.slice(0, -1).map((id, i) => ({
+        id: `e${i}`,
+        source: id,
+        target: ids[i + 1]!,
+      })),
+    }
+  }
+
+  it('does not expand when the result already has enough nodes', async () => {
+    const base = makePipelineBase(makeDetailedFlowchart())
+    const expand = vi.fn()
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite' })
+    const outcome = await wrapped.generateOutcome!({ prompt: detailedPrompt })
+    expect(expand).not.toHaveBeenCalled()
+    expect(outcome.expandedBy).toBeUndefined()
+    expect(outcome.flowchart.nodes).toHaveLength(7)
+  })
+
+  it('does not expand for a short prompt', async () => {
+    const base = makePipelineBase(clean)
+    const expand = vi.fn()
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite' })
+    const outcome = await wrapped.generateOutcome!({ prompt: 'short' })
+    expect(expand).not.toHaveBeenCalled()
+    expect(outcome.expandedBy).toBeUndefined()
+    expect(outcome.flowchart).toEqual(clean)
+  })
+
+  it('expands an oversimplified result and reports the aid label', async () => {
+    const base = makePipelineBase(clean)
+    const expanded = makeDetailedFlowchart()
+    const expand = vi.fn().mockResolvedValue(expanded)
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite' })
+    const outcome = await wrapped.generateOutcome!({ prompt: detailedPrompt })
+    expect(expand).toHaveBeenCalledWith({ prompt: detailedPrompt }, clean)
+    expect(outcome.expandedBy).toBe('Gemini Flash-Lite')
+    expect(outcome.flowchart).toEqual(expanded)
+  })
+
+  it('keeps the primary result when expansion throws', async () => {
+    const base = makePipelineBase(clean)
+    const expand = vi.fn().mockRejectedValue(new Error('gemini down'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite' })
+    const outcome = await wrapped.generateOutcome!({ prompt: detailedPrompt })
+    expect(outcome.flowchart).toEqual(clean)
+    expect(outcome.expandedBy).toBeUndefined()
+    warn.mockRestore()
+  })
+
+  it('keeps the primary result when expansion returns a non-flowchart', async () => {
+    const base = makePipelineBase(clean)
+    const expand = vi.fn().mockResolvedValue({ nodes: 'nope' })
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite' })
+    const outcome = await wrapped.generateOutcome!({ prompt: detailedPrompt })
+    expect(outcome.flowchart).toEqual(clean)
+    expect(outcome.expandedBy).toBeUndefined()
+  })
+
+  it('keeps the primary result when expansion is not bigger', async () => {
+    const base = makePipelineBase(clean)
+    const expand = vi.fn().mockResolvedValue(makeFlowchart())
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite' })
+    const outcome = await wrapped.generateOutcome!({ prompt: detailedPrompt })
+    expect(outcome.flowchart).toEqual(clean)
+    expect(outcome.expandedBy).toBeUndefined()
+  })
+
+  it('rule-repairs a dirty expansion before accepting it', async () => {
+    const base = makePipelineBase(clean)
+    const dirtyExpansion = makeDetailedFlowchart()
+    dirtyExpansion.edges.push({ id: 'e9', source: 'ghost', target: 'a' })
+    const expand = vi.fn().mockResolvedValue(dirtyExpansion)
+    const repairFlowchart = vi.fn()
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite', repairFlowchart })
+    const outcome = await wrapped.generateOutcome!({ prompt: detailedPrompt })
+    expect(outcome.expandedBy).toBe('Gemini Flash-Lite')
+    expect(outcome.flowchart.edges.map((e) => e.id)).not.toContain('e9')
+    expect(outcome.flowchart.nodes).toHaveLength(7)
+    expect(repairFlowchart).not.toHaveBeenCalled()
+  })
+
+  it('exposes generateFlowchart that returns just the flowchart', async () => {
+    const base = makePipelineBase(clean)
+    const expanded = makeDetailedFlowchart()
+    const expand = vi.fn().mockResolvedValue(expanded)
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite' })
+    const result = await wrapped.generateFlowchart({ prompt: detailedPrompt })
+    expect(result).toEqual(expanded)
+  })
+
+  it('delegates editFlowchart to the base pipeline', async () => {
+    const base = makePipelineBase(clean)
+    const wrapped = withOversimplifyAid(base, { expand: vi.fn(), expandedBy: 'Gemini Flash-Lite' })
+    const result = await wrapped.editFlowchart(clean, { prompt: 'add a step' })
+    expect(result).toEqual(clean)
+    expect(base.editFlowchart).toHaveBeenCalledWith(clean, { prompt: 'add a step' })
   })
 })
 

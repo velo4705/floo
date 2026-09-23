@@ -7,6 +7,10 @@ export { isFlowchart, NODE_KINDS }
 export type NodeData = Record<string, unknown> & {
   kind: NodeKind
   label: string
+  /** True when some edge leaves this node from the left (loop-back source). */
+  leftSource?: boolean
+  /** True when some edge enters this node from the left (loop-back target). */
+  leftTarget?: boolean
 }
 
 export type FlooNode = RfNode<NodeData>
@@ -57,6 +61,24 @@ export function toRfEdges(flowchart: Flowchart): FlooEdge[] {
  */
 export function refreshEdgePorts(nodes: FlooNode[], edges: FlooEdge[]): FlooEdge[] {
   return assignEdgePorts(toFlowchart(nodes, edges), edges)
+}
+
+/** Per-node flags for whether any edge uses the left port as source/target. */
+export function leftPortUsage(edges: FlooEdge[]): Map<string, { leftSource: boolean; leftTarget: boolean }> {
+  const usage = new Map<string, { leftSource: boolean; leftTarget: boolean }>()
+  const entry = (id: string): { leftSource: boolean; leftTarget: boolean } => {
+    let flags = usage.get(id)
+    if (!flags) {
+      flags = { leftSource: false, leftTarget: false }
+      usage.set(id, flags)
+    }
+    return flags
+  }
+  for (const edge of edges) {
+    if (edge.sourceHandle === PORTS.LEFT) entry(edge.source).leftSource = true
+    if (edge.targetHandle === PORTS.LEFT) entry(edge.target).leftTarget = true
+  }
+  return usage
 }
 
 function assignEdgePorts(flowchart: Flowchart, edges: FlooEdge[]): FlooEdge[] {

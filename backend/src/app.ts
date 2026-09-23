@@ -21,10 +21,22 @@ export function createApp(provider: FlowchartProvider) {
       : undefined
 
     try {
-      const flowchart = await provider.generateFlowchart({
-        prompt: body.prompt,
-        context,
-      })
+      const request = { prompt: body.prompt, context }
+      const started = Date.now()
+
+      let flowchart: unknown
+      let expandedBy: string | undefined
+
+      if (provider.generateOutcome) {
+        const outcome = await provider.generateOutcome(request)
+        flowchart = outcome.flowchart
+        expandedBy = outcome.expandedBy
+      } else {
+        flowchart = await provider.generateFlowchart(request)
+      }
+
+      console.log(`[debug] POST /api/generate done in ${Date.now() - started}ms`)
+      if (expandedBy) c.header('X-Floo-Aid', expandedBy)
       return c.json(flowchart)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown error'
@@ -52,10 +64,12 @@ export function createApp(provider: FlowchartProvider) {
       : undefined
 
     try {
+      const started = Date.now()
       const flowchart = await provider.editFlowchart(body.current, {
         prompt: body.prompt,
         context,
       })
+      console.log(`[debug] POST /api/edit done in ${Date.now() - started}ms`)
       return c.json(flowchart)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown error'

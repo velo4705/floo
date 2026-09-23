@@ -95,6 +95,54 @@ describe('POST /api/generate', () => {
     const body = (await res.json()) as { error: string }
     expect(body).toMatchObject({ error: 'Groq is down' })
   })
+
+  it('uses generateOutcome and sets X-Floo-Aid when the provider expanded an oversimplified result', async () => {
+    const provider = mockProvider({
+      generateOutcome: vi.fn().mockResolvedValue({
+        flowchart: mockFlowchart,
+        expandedBy: 'Gemini Flash-Lite',
+      }),
+    })
+    const app = createApp(provider)
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'ship an app' }),
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('X-Floo-Aid')).toBe('Gemini Flash-Lite')
+    const body = (await res.json()) as Flowchart
+    expect(body.nodes).toHaveLength(3)
+    expect(provider.generateOutcome).toHaveBeenCalledWith({ prompt: 'ship an app', context: undefined })
+    expect(provider.generateFlowchart).not.toHaveBeenCalled()
+  })
+
+  it('omits X-Floo-Aid when generateOutcome reports no aid', async () => {
+    const provider = mockProvider({
+      generateOutcome: vi.fn().mockResolvedValue({ flowchart: mockFlowchart }),
+    })
+    const app = createApp(provider)
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'ship an app' }),
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('X-Floo-Aid')).toBeNull()
+  })
+
+  it('falls back to generateFlowchart when generateOutcome is absent', async () => {
+    const provider = mockProvider()
+    const app = createApp(provider)
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'ship an app' }),
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('X-Floo-Aid')).toBeNull()
+    expect(provider.generateFlowchart).toHaveBeenCalled()
+  })
 })
 
 describe('POST /api/edit', () => {
