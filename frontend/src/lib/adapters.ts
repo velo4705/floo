@@ -9,6 +9,7 @@ export { isFlowchart, NODE_KINDS }
 export type NodeData = Record<string, unknown> & {
   kind: NodeKind
   label: string
+  url?: string
   /** True when some edge leaves this node from the left (loop-back source). */
   leftSource?: boolean
   /** True when some edge enters this node from the left (loop-back target). */
@@ -27,21 +28,28 @@ export const PORTS = {
 export type Port = (typeof PORTS)[keyof typeof PORTS]
 
 export function toRfNodes(flowchart: Flowchart): FlooNode[] {
-  return flowchart.nodes.map((n) => ({
-    id: n.id,
-    type: n.type,
-    position: n.position,
-    // Pin measured size to the same dimensions ELK reserved, so React Flow
-    // never re-measures a different box than the layout assumed.
-    width: NODE_SIZE[n.type].width,
-    height: NODE_SIZE[n.type].height,
-    data: { kind: n.type, label: n.label },
-  }))
+  return flowchart.nodes.map((n) => {
+    const url = typeof n.metadata?.url === 'string' ? n.metadata.url : undefined
+    return {
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      // Pin measured size to the same dimensions ELK reserved, so React Flow
+      // never re-measures a different box than the layout assumed.
+      width: NODE_SIZE[n.type].width,
+      height: NODE_SIZE[n.type].height,
+      data: url !== undefined ? { kind: n.type, label: n.label, url } : { kind: n.type, label: n.label },
+    }
+  })
 }
 
 /** Sets a node's label in data (render + export path). */
 export function setNodeLabel(nodes: FlooNode[], id: string, label: string): FlooNode[] {
   return nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n))
+}
+
+export function setNodeUrl(nodes: FlooNode[], id: string, url: string): FlooNode[] {
+  return nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, url } } : n))
 }
 
 const YES_LABEL = /yes|true|approve|pass|continue|again|repeat/
@@ -184,14 +192,19 @@ function findLoopBackIds(flowchart: Flowchart): Set<string> {
 
 export function toFlowchart(nodes: FlooNode[], edges: FlooEdge[]): Flowchart {
   return {
-    nodes: nodes.map(
-      (n): FlowchartNode => ({
+    nodes: nodes.map((n): FlowchartNode => {
+      const base: FlowchartNode = {
         id: n.id,
         type: n.data.kind,
         label: n.data.label,
         position: n.position,
-      }),
-    ),
+      }
+      const url = n.data.url
+      if (typeof url === 'string' && url.length > 0) {
+        return { ...base, metadata: { url } }
+      }
+      return base
+    }),
     edges: edges.map(
       (e): FlowchartEdge => ({
         id: e.id,

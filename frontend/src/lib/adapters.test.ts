@@ -10,6 +10,7 @@ import {
   refreshEdgePorts,
   setEdgeLabel,
   setNodeLabel,
+  setNodeUrl,
   toFlowchart,
   toRfEdges,
   toRfNodes,
@@ -235,6 +236,25 @@ describe('adapters', () => {
     const back = toFlowchart(nodes, edges)
 
     expect(back).toEqual(sampleFlowchart)
+  })
+
+  it('round-trips media metadata url through React Flow data', () => {
+    const flowchart: Flowchart = {
+      nodes: [
+        { id: 'm1', type: 'media', label: 'Shot', position: { x: 10, y: 20 }, metadata: { url: 'https://example.com/a.png' } },
+      ],
+      edges: [],
+    }
+    const nodes = toRfNodes(flowchart)
+    expect(nodes[0]).toMatchObject({ data: { kind: 'media', label: 'Shot', url: 'https://example.com/a.png' } })
+    expect(toFlowchart(nodes, [])).toEqual(flowchart)
+  })
+
+  it('sets a media node url in data', () => {
+    const nodes = toRfNodes(sampleFlowchart)
+    const updated = setNodeUrl(nodes, 'n2', 'data:image/png;base64,xxx')
+    expect(updated[1]).toMatchObject({ id: 'n2', data: { kind: 'process', label: 'Visit floo.ink', url: 'data:image/png;base64,xxx' } })
+    expect(updated[0]).toEqual(nodes[0])
   })
 
   it('accepts a valid Flowchart and rejects junk', () => {

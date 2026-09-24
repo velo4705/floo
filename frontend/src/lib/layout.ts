@@ -1,6 +1,6 @@
 import ELK from 'elkjs/lib/elk.bundled.js'
 
-import type { Flowchart, FlowchartEdge, FlowchartNode, NodeKind } from '@floo/shared'
+import { isFreeFloating, type Flowchart, type FlowchartEdge, type FlowchartNode, type NodeKind } from '@floo/shared'
 
 const elk = new ELK()
 
@@ -26,6 +26,7 @@ export const NODE_SIZE: Record<NodeKind, { width: number; height: number }> = {
   output: { width: 190, height: 50 },
   loop: { width: 190, height: 62 },
   text: { width: 220, height: 80 },
+  media: { width: 240, height: 180 },
 }
 
 function toElkDefinition(flowchart: Flowchart, options: LayoutOptions) {
@@ -55,9 +56,8 @@ function toElkDefinition(flowchart: Flowchart, options: LayoutOptions) {
       // Fan out branch edges so they don't stack on one corridor.
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
     },
-    // Text boxes stay where the user put them — they are not part of the flow.
     children: flowchart.nodes
-      .filter((n) => n.type !== 'text')
+      .filter((n) => !isFreeFloating(n.type))
       .map((n) => ({
         id: n.id,
         ...NODE_SIZE[n.type],
@@ -173,11 +173,12 @@ export async function layoutFlowchart(
     position: positions.get(n.id) ?? n.position,
   }))
 
-  // Zig-zag only the flow nodes; text boxes keep their user-placed positions.
-  const flowNodes = laid.filter((n) => n.type !== 'text')
+  const flowNodes = laid.filter((n) => !isFreeFloating(n.type))
   const staggered = applyZigzag(flowNodes, flowchart.edges, options.direction ?? 'TB', options.stagger ?? ZIGZAG_STAGGER)
   const staggerPos = new Map(staggered.map((n) => [n.id, n.position]))
-  const nodes = laid.map((n) => (n.type === 'text' ? n : { ...n, position: staggerPos.get(n.id) ?? n.position }))
+  const nodes = laid.map((n) =>
+    isFreeFloating(n.type) ? n : { ...n, position: staggerPos.get(n.id) ?? n.position },
+  )
 
   return { nodes, edges: flowchart.edges }
 }

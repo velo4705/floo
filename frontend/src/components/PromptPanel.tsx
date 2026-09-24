@@ -5,7 +5,6 @@ import { applyEdit, isLikelyOversimplified, validateFlowchart } from '@floo/shar
 import { isFlowchart, toFlowchart, toRfEdges, toRfNodes } from '../lib/adapters'
 import { layoutFlowchart } from '../lib/layout'
 
-import type { Dispatch, SetStateAction } from 'react'
 import type { AppliedEdit } from '@floo/shared'
 import type { FlooNode, FlooEdge } from '../lib/adapters'
 
@@ -13,9 +12,9 @@ type Mode = 'create' | 'edit'
 
 interface PromptPanelProps {
   nodes: FlooNode[]
-  setNodes: Dispatch<SetStateAction<FlooNode[]>>
   edges: FlooEdge[]
-  setEdges: Dispatch<SetStateAction<FlooEdge[]>>
+  /** Replace the whole graph in one history-aware commit. */
+  onApplyGraph: (nodes: FlooNode[], edges: FlooEdge[]) => void
 }
 
 function formatElapsed(totalSeconds: number): string {
@@ -36,7 +35,7 @@ function describeChanges(changes: AppliedEdit['changes']): string[] {
   return parts
 }
 
-export function PromptPanel({ nodes, setNodes, edges, setEdges }: PromptPanelProps) {
+export function PromptPanel({ nodes, edges, onApplyGraph }: PromptPanelProps) {
   const [prompt, setPrompt] = useState('')
   const [mode, setMode] = useState<Mode>('create')
   const [loading, setLoading] = useState(false)
@@ -85,6 +84,9 @@ export function PromptPanel({ nodes, setNodes, edges, setEdges }: PromptPanelPro
             ? { prompt: trimmed, current: toFlowchart(nodes, edges) }
             : { prompt: trimmed },
         ),
+        // Backend LLM calls time out around 30s each; give the chain room
+        // but never leave the UI spinning forever.
+        signal: AbortSignal.timeout(90_000),
       })
 
       if (!res.ok) {
@@ -121,15 +123,17 @@ export function PromptPanel({ nodes, setNodes, edges, setEdges }: PromptPanelPro
 
       if (useEdit) {
         const applied = applyEdit(toFlowchart(nodes, edges), laid)
-        setNodes(toRfNodes(applied.flowchart))
-        setEdges(toRfEdges(applied.flowchart))
+        onApplyGraph(toRfNodes(applied.flowchart), toRfEdges(applied.flowchart))
         setChanges(describeChanges(applied.changes))
       } else {
-        setNodes(toRfNodes(laid))
-        setEdges(toRfEdges(laid))
+        onApplyGraph(toRfNodes(laid), toRfEdges(laid))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
+      if (err instanceof DOMException && err.name === 'TimeoutError') {
+        setError('The AI took too long (90s). Try again — or check the backend logs.')
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong.')
+      }
     } finally {
       setLoading(false)
     }

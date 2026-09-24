@@ -3,7 +3,31 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { PORTS, type NodeData } from '../lib/adapters'
 
 export default function FlooNode({ data, selected }: NodeProps) {
-  const { label, kind, leftSource, leftTarget } = data as NodeData
+  const { label, kind, leftSource, leftTarget, url } = data as NodeData
+  // Text boxes are free-floating annotations: no ports, so nothing can attach.
+  if (kind === 'text') {
+    return (
+      <div className={`floo-node floo-node--text${selected ? ' is-selected' : ''}`}>
+        <div className="floo-shape" />
+        <div className="floo-label">{label}</div>
+      </div>
+    )
+  }
+  if (kind === 'media') {
+    const src = typeof url === 'string' && url.length > 0 ? url : undefined
+    return (
+      <div className={`floo-node floo-node--media${selected ? ' is-selected' : ''}`}>
+        <div className="floo-shape">
+          {src ? (
+            <img className="floo-media-img" src={src} alt={label} draggable={false} />
+          ) : (
+            <div className="floo-media-placeholder">No image</div>
+          )}
+        </div>
+        <div className="floo-label">{label}</div>
+      </div>
+    )
+  }
   // Decision exposes exactly two outlets (Yes bottom / No right) plus the top
   // inlet. Left appears only when a loop-back edge actually uses it.
   const isDecision = kind === 'decision'

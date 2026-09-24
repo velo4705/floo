@@ -130,6 +130,28 @@ describe('layoutFlowchart', () => {
     expect(laid.nodes).toHaveLength(withNote.nodes.length)
   })
 
+  it('keeps media nodes at their user-placed positions during auto-layout', async () => {
+    const withMedia: typeof sampleFlowchart = {
+      nodes: [
+        ...sampleFlowchart.nodes,
+        {
+          id: 'shot1',
+          type: 'media',
+          label: 'Screenshot',
+          position: { x: 1100, y: 200 },
+          metadata: { url: 'https://example.com/img.png' },
+        },
+      ],
+      edges: sampleFlowchart.edges,
+    }
+    const laid = await layoutFlowchart(withMedia)
+    const shot = laid.nodes.find((n) => n.id === 'shot1')
+    expect(shot).toBeDefined()
+    expect(shot!.position).toEqual({ x: 1100, y: 200 })
+    expect(shot!.metadata).toEqual({ url: 'https://example.com/img.png' })
+    expect(laid.nodes).toHaveLength(withMedia.nodes.length)
+  })
+
   it('never leaves two nodes overlapping after layout (including zig-zag)', async () => {
     // Branching + back-edge chart similar to a generated login/MFA flow:
     // triggers zig-zag, which previously split mixed-height rows and collided.

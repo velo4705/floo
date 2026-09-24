@@ -18,6 +18,8 @@ export function defaultLabel(kind: string): string {
       return 'Repeat'
     case 'text':
       return 'Text'
+    case 'media':
+      return 'Media'
     default:
       return 'Process'
   }

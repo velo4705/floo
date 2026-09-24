@@ -1,10 +1,12 @@
-import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from '@xyflow/react'
 
 import type { EdgeProps } from '@xyflow/react'
 
 /**
- * Default bezier edge with the label lifted into the EdgeLabelRenderer layer
- * (which we stack above the nodes) so a label is never hidden behind a shape.
+ * Smooth-step (rounded right-angle) edge with the label lifted into the
+ * EdgeLabelRenderer layer (stacked above the nodes) so a label is never
+ * hidden behind a shape. Smooth-step matches the layered layout's reading
+ * order far better than bezier, which bows across unrelated branches.
  */
 export function FlooEdge({
   id,
@@ -19,13 +21,14 @@ export function FlooEdge({
   style,
   interactionWidth,
 }: EdgeProps) {
-  const [path, labelX, labelY] = getBezierPath({
+  const [path, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
+    borderRadius: 12,
   })
 
   return (

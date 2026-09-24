@@ -5,11 +5,14 @@ import type { FlooNode } from '../lib/adapters'
 interface NodeInspectorProps {
   node: FlooNode
   onChange: (label: string) => void
+  onUrlChange?: (url: string) => void
   focusToken: number
 }
 
-export function NodeInspector({ node, onChange, focusToken }: NodeInspectorProps) {
+export function NodeInspector({ node, onChange, onUrlChange, focusToken }: NodeInspectorProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const isMedia = node.data.kind === 'media'
+  const url = typeof node.data.url === 'string' ? node.data.url : ''
 
   useEffect(() => {
     if (focusToken > 0) {
@@ -36,8 +39,38 @@ export function NodeInspector({ node, onChange, focusToken }: NodeInspectorProps
           if (e.key === 'Enter') inputRef.current?.blur()
         }}
       />
+      {isMedia && (
+        <>
+          <input
+            className="floo-sidebar__input floo-sidebar__input--gap"
+            type="url"
+            value={url}
+            placeholder="Image URL"
+            aria-label="Media image URL"
+            onChange={(e) => onUrlChange?.(e.target.value)}
+          />
+          <label className="floo-sidebar__btn floo-sidebar__input--gap">
+            Upload image
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  const reader = new FileReader()
+                  reader.onload = () => onUrlChange?.(String(reader.result ?? ''))
+                  reader.readAsDataURL(file)
+                }
+                e.target.value = ''
+              }}
+            />
+          </label>
+        </>
+      )}
       <p className="floo-sidebar__inspector-hint">
-        Double-click the shape to edit · Backspace while typing edits text only
+        {isMedia
+          ? 'Paste an image URL or upload a file · free-floating (no connections)'
+          : 'Double-click the shape to edit · Backspace while typing edits text only'}
       </p>
     </div>
   )
