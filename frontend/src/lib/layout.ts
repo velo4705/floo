@@ -15,7 +15,7 @@ export interface LayoutOptions {
 }
 
 /** Default horizontal offset (px) for zig-zag staggering on looped charts. */
-export const ZIGZAG_STAGGER = 96
+export const ZIGZAG_STAGGER = 120
 
 export const NODE_SIZE: Record<NodeKind, { width: number; height: number }> = {
   start: { width: 150, height: 50 },
@@ -25,12 +25,13 @@ export const NODE_SIZE: Record<NodeKind, { width: number; height: number }> = {
   input: { width: 190, height: 50 },
   output: { width: 190, height: 50 },
   loop: { width: 190, height: 62 },
+  text: { width: 220, height: 80 },
 }
 
 function toElkDefinition(flowchart: Flowchart, options: LayoutOptions) {
   // Top-down is the conventional flowchart reading order; pass 'LR' to override.
   const direction = options.direction === 'LR' ? 'RIGHT' : 'DOWN'
-  const spacing = options.spacing ?? 64
+  const spacing = options.spacing ?? 96
 
   return {
     id: 'root',
@@ -39,8 +40,11 @@ function toElkDefinition(flowchart: Flowchart, options: LayoutOptions) {
       'elk.direction': direction,
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.spacing.nodeNode': String(spacing),
+      // Extra gap between layers so Yes/No branches and labels have room.
       'elk.layered.spacing.nodeNodeBetweenLayers': String(spacing * 2),
       'elk.layered.spacing.edgeNodeBetweenLayers': String(spacing),
+      // Keep parallel branch edges from hugging node borders.
+      'elk.layered.spacing.edgeEdge': String(spacing / 2),
       // Break cycles against model order so loop-back edges (which point
       // "upwards" in reading order) are the ones reversed, keeping the main
       // path on a clean top-down stack.
@@ -48,11 +52,16 @@ function toElkDefinition(flowchart: Flowchart, options: LayoutOptions) {
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
       // Prefer balanced node placement / straighter orthogonal routes.
       'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+      // Fan out branch edges so they don't stack on one corridor.
+      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
     },
-    children: flowchart.nodes.map((n) => ({
-      id: n.id,
-      ...NODE_SIZE[n.type],
-    })),
+    // Text boxes stay where the user put them — they are not part of the flow.
+    children: flowchart.nodes
+      .filter((n) => n.type !== 'text')
+      .map((n) => ({
+        id: n.id,
+        ...NODE_SIZE[n.type],
+      })),
     edges: flowchart.edges
       .filter((e) => flowchart.nodes.some((n) => n.id === e.source) && flowchart.nodes.some((n) => n.id === e.target))
       .map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
@@ -66,6 +75,11 @@ function toElkDefinition(flowchart: Flowchart, options: LayoutOptions) {
  * hand. Staggering alternate layers horizontally opens a clear side channel
  * for the loop-back, so looped charts snake instead of forming one rigid line.
  * Charts without back-edges are left untouched.
+ *
+ * Layers are grouped by node *center* on the flow axis: ELK places mixed-height
+ * nodes in one layer at slightly different top-Y values, and grouping by top-Y
+ * split a single row into two stagger groups (which caused overlaps).
+ * If the stagger would still collide, the original ELK positions are kept.
  */
 function applyZigzag(
   nodes: FlowchartNode[],
@@ -75,7 +89,14 @@ function applyZigzag(
 ): FlowchartNode[] {
   if (stagger <= 0) return nodes
 
+  const size = (n: FlowchartNode) => NODE_SIZE[n.type]
   const flowAxis = (p: { x: number; y: number }) => (direction === 'LR' ? p.x : p.y)
+  const flowCenter = (n: FlowchartNode) => {
+    const s = size(n)
+    return direction === 'LR'
+      ? n.position.x + s.width / 2
+      : n.position.y + s.height / 2
+  }
   const byId = new Map(nodes.map((n) => [n.id, n]))
 
   const hasBackEdge = edges.some((e) => {
@@ -85,17 +106,49 @@ function applyZigzag(
   })
   if (!hasBackEdge) return nodes
 
-  // ELK aligns every node in a layer on one coordinate; group by it and
-  // offset the odd layers so the column snakes.
-  const layers = [...new Set(nodes.map((n) => Math.round(flowAxis(n.position))))].sort((a, b) => a - b)
+  // Cluster centers into layers (ELK layer gap is ≥ spacing, well above this).
+  const TOLERANCE = 24
+  const sorted = [...nodes].sort((a, b) => flowCenter(a) - flowCenter(b))
+  const layerOf = new Map<string, number>()
+  let layer = -1
+  let layerRep = Number.NEGATIVE_INFINITY
+  for (const n of sorted) {
+    const c = flowCenter(n)
+    if (layer < 0 || c - layerRep > TOLERANCE) {
+      layer += 1
+      layerRep = c
+    }
+    layerOf.set(n.id, layer)
+  }
 
-  return nodes.map((n) => {
-    const layer = layers.indexOf(Math.round(flowAxis(n.position)))
-    if (layer % 2 === 0) return n
+  const staggered = nodes.map((n) => {
+    if ((layerOf.get(n.id) ?? 0) % 2 === 0) return n
     return direction === 'LR'
       ? { ...n, position: { x: n.position.x, y: n.position.y + stagger } }
       : { ...n, position: { x: n.position.x + stagger, y: n.position.y } }
   })
+
+  return boxesOverlap(staggered) ? nodes : staggered
+}
+
+/** True when any two node bounding boxes intersect (edges ignored). */
+function boxesOverlap(nodes: FlowchartNode[]): boolean {
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i]!
+    const sa = NODE_SIZE[a.type]
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j]!
+      const sb = NODE_SIZE[b.type]
+      const ax2 = a.position.x + sa.width
+      const ay2 = a.position.y + sa.height
+      const bx2 = b.position.x + sb.width
+      const by2 = b.position.y + sb.height
+      if (a.position.x < bx2 && b.position.x < ax2 && a.position.y < by2 && b.position.y < ay2) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 /**
@@ -120,7 +173,11 @@ export async function layoutFlowchart(
     position: positions.get(n.id) ?? n.position,
   }))
 
-  const nodes = applyZigzag(laid, flowchart.edges, options.direction ?? 'TB', options.stagger ?? ZIGZAG_STAGGER)
+  // Zig-zag only the flow nodes; text boxes keep their user-placed positions.
+  const flowNodes = laid.filter((n) => n.type !== 'text')
+  const staggered = applyZigzag(flowNodes, flowchart.edges, options.direction ?? 'TB', options.stagger ?? ZIGZAG_STAGGER)
+  const staggerPos = new Map(staggered.map((n) => [n.id, n.position]))
+  const nodes = laid.map((n) => (n.type === 'text' ? n : { ...n, position: staggerPos.get(n.id) ?? n.position }))
 
   return { nodes, edges: flowchart.edges }
 }

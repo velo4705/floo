@@ -2,6 +2,8 @@ import { isFlowchart, NODE_KINDS } from '@floo/shared'
 import type { Flowchart, FlowchartEdge, FlowchartNode, NodeKind } from '@floo/shared'
 import type { Edge as RfEdge, Node as RfNode } from '@xyflow/react'
 
+import { NODE_SIZE } from './layout'
+
 export { isFlowchart, NODE_KINDS }
 
 export type NodeData = Record<string, unknown> & {
@@ -29,6 +31,10 @@ export function toRfNodes(flowchart: Flowchart): FlooNode[] {
     id: n.id,
     type: n.type,
     position: n.position,
+    // Pin measured size to the same dimensions ELK reserved, so React Flow
+    // never re-measures a different box than the layout assumed.
+    width: NODE_SIZE[n.type].width,
+    height: NODE_SIZE[n.type].height,
     data: { kind: n.type, label: n.label },
   }))
 }

@@ -1,3 +1,56 @@
+/* Theme tokens — light is default; dark applies via [data-theme="dark"]. */
+:root {
+  --bg: #fff;
+  --bg-subtle: #fafafa;
+  --bg-elevated: #fff;
+  --text: #212529;
+  --text-strong: #111827;
+  --text-muted: #6b7280;
+  --text-soft: #9ca3af;
+  --border: #e0e0e0;
+  --border-strong: #d0d0d0;
+  --border-soft: #e5e7eb;
+  --accent: #1976d2;
+  --accent-hover: #1565c0;
+  --accent-soft: rgb(25 118 210 / 0.15);
+  --focus-ring: #1976d2;
+  --canvas-mask: rgb(255 255 255 / 100%);
+  --panel-fade: linear-gradient(0deg, #fff 80%, transparent);
+  --tab-bar: #1f2937;
+  --tab-active-bg: #374151;
+  --tab-idle: #9ca3af;
+  --timer-bg: #111827;
+  --timer-fg: #fff;
+  --rf-bg: #fff;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0f172a;
+  --bg-subtle: #1e293b;
+  --bg-elevated: #1e293b;
+  --text: #e5e7eb;
+  --text-strong: #f3f4f6;
+  --text-muted: #9ca3af;
+  --text-soft: #6b7280;
+  --border: #334155;
+  --border-strong: #475569;
+  --border-soft: #334155;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-soft: rgb(59 130 246 / 0.2);
+  --focus-ring: #3b82f6;
+  --canvas-mask: rgb(15 23 42 / 100%);
+  --panel-fade: linear-gradient(0deg, #0f172a 80%, transparent);
+  --tab-bar: #0b1220;
+  --tab-active-bg: #334155;
+  --tab-idle: #94a3b8;
+  --timer-bg: #f8fafc;
+  --timer-fg: #0f172a;
+  --rf-bg: #0f172a;
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -7,6 +60,6 @@ body,
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
-  color: #212529;
-  background: #fff;
+  color: var(--text);
+  background: var(--bg);
 }

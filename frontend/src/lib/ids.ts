@@ -16,6 +16,8 @@ export function defaultLabel(kind: string): string {
       return 'Output'
     case 'loop':
       return 'Repeat'
+    case 'text':
+      return 'Text'
     default:
       return 'Process'
   }

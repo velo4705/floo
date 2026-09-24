@@ -114,4 +114,68 @@ describe('layoutFlowchart', () => {
     const laid = await layoutFlowchart(sampleFlowchart)
     expect(laid.nodes).toHaveLength(sampleFlowchart.nodes.length)
   })
+
+  it('keeps text boxes at their user-placed positions during auto-layout', async () => {
+    const withNote: typeof sampleFlowchart = {
+      nodes: [
+        ...sampleFlowchart.nodes,
+        { id: 'note1', type: 'text', label: 'Side note', position: { x: 900, y: 40 } },
+      ],
+      edges: sampleFlowchart.edges,
+    }
+    const laid = await layoutFlowchart(withNote)
+    const note = laid.nodes.find((n) => n.id === 'note1')
+    expect(note).toBeDefined()
+    expect(note!.position).toEqual({ x: 900, y: 40 })
+    expect(laid.nodes).toHaveLength(withNote.nodes.length)
+  })
+
+  it('never leaves two nodes overlapping after layout (including zig-zag)', async () => {
+    // Branching + back-edge chart similar to a generated login/MFA flow:
+    // triggers zig-zag, which previously split mixed-height rows and collided.
+    const auth: typeof sampleFlowchart = {
+      nodes: [
+        { id: 'n1', type: 'start', label: 'Start', position: { x: 0, y: 0 } },
+        { id: 'n2', type: 'input', label: 'Enter credentials', position: { x: 0, y: 0 } },
+        { id: 'n3', type: 'decision', label: 'Valid?', position: { x: 0, y: 0 } },
+        { id: 'n4', type: 'process', label: 'Prompt for MFA', position: { x: 0, y: 0 } },
+        { id: 'n5', type: 'decision', label: 'MFA success?', position: { x: 0, y: 0 } },
+        { id: 'n6', type: 'decision', label: 'Account locked?', position: { x: 0, y: 0 } },
+        { id: 'n7', type: 'process', label: 'Lock account', position: { x: 0, y: 0 } },
+        { id: 'n8', type: 'process', label: 'Show error message', position: { x: 0, y: 0 } },
+        { id: 'n9', type: 'output', label: 'Redirect to dashboard', position: { x: 0, y: 0 } },
+        { id: 'n10', type: 'end', label: 'End', position: { x: 0, y: 0 } },
+      ],
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2' },
+        { id: 'e2', source: 'n2', target: 'n3' },
+        { id: 'e3', source: 'n3', target: 'n4', label: 'Yes' },
+        { id: 'e4', source: 'n3', target: 'n8', label: 'No' },
+        { id: 'e5', source: 'n4', target: 'n5' },
+        { id: 'e6', source: 'n5', target: 'n9', label: 'Yes' },
+        { id: 'e7', source: 'n5', target: 'n6', label: 'No' },
+        { id: 'e8', source: 'n6', target: 'n7', label: 'Yes' },
+        { id: 'e9', source: 'n6', target: 'n8', label: 'No' },
+        { id: 'e10', source: 'n7', target: 'n2' },
+        { id: 'e11', source: 'n8', target: 'n10' },
+        { id: 'e12', source: 'n9', target: 'n10' },
+      ],
+    }
+
+    const laid = await layoutFlowchart(auth)
+    for (let i = 0; i < laid.nodes.length; i++) {
+      const a = laid.nodes[i]!
+      const sa = NODE_SIZE[a.type]
+      for (let j = i + 1; j < laid.nodes.length; j++) {
+        const b = laid.nodes[j]!
+        const sb = NODE_SIZE[b.type]
+        const ax2 = a.position.x + sa.width
+        const ay2 = a.position.y + sa.height
+        const bx2 = b.position.x + sb.width
+        const by2 = b.position.y + sb.height
+        const overlap = a.position.x < bx2 && b.position.x < ax2 && a.position.y < by2 && b.position.y < ay2
+        expect(overlap, `${a.id} overlaps ${b.id}`).toBe(false)
+      }
+    }
+  })
 })
