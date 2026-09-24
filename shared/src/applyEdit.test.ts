@@ -30,6 +30,31 @@ describe('applyEdit', () => {
     expect(byId.get('n3')?.position).toEqual({ x: 200, y: 500 })
   })
 
+  it('preserves media metadata when the model omits it', () => {
+    const prev = makeFlowchart({
+      nodes: makeFlowchart().nodes.concat([
+        {
+          id: 'm1',
+          type: 'media',
+          label: 'Shot',
+          position: { x: 40, y: 80 },
+          metadata: { url: 'https://example.com/a.png' },
+        },
+      ]),
+      edges: makeFlowchart().edges,
+    })
+    const next = makeFlowchart({
+      nodes: makeFlowchart().nodes.concat([
+        { id: 'm1', type: 'media', label: 'Shot', position: { x: 0, y: 0 } },
+      ]),
+      edges: makeFlowchart().edges,
+    })
+    const result = applyEdit(prev, next)
+    const media = result.flowchart.nodes.find((n) => n.id === 'm1')
+    expect(media?.metadata).toEqual({ url: 'https://example.com/a.png' })
+    expect(media?.position).toEqual({ x: 40, y: 80 })
+  })
+
   it('keeps layout positions for brand-new nodes', () => {
     const prev = makeFlowchart()
     const next = makeFlowchart({

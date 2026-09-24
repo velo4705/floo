@@ -10,12 +10,12 @@ Built as a TypeScript monorepo with three workspaces:
 
 ## Features
 
-- **Generate from a prompt** — describe a process; the model returns a typed flowchart (start, process, decision, input, output, loop, end) that is validated and auto-laid-out.
+- **Generate from a prompt** — describe a process; the model returns a typed flowchart (start, process, decision, input, output, loop, end, text, media) that is validated and auto-laid-out.
 - **Model fallback chain** — on hard failures only (timeout, bad JSON, API error): every `*-flash-lite` Gemini model your key can call, sorted newest version first, then Groq `openai/gpt-oss-120b`. Discovered at boot via `models.list` (no hardcoded Gemini ids); deprecated models that fail are skipped automatically. Quality issues do not advance the chain.
 - **Oversimplification aid (optional)** — set `GEMINI_API_KEY` and detailed descriptions that come back too small are re-expanded by Gemini flash-lite (best-effort; the primary result is kept if expand fails, and a yellow notice tells you when it was used).
 - **Edit with natural language** — with a diagram on the canvas, switch to *Edit diagram* and describe a change. The backend diffs your current diagram against the proposed one and applies only structural changes (added/removed/renamed steps), telling you what changed.
 - **Auto-layout** — ELK hierarchical layout; loopable charts get a zig-zag stagger so back-edges don't cross straight paths.
-- **Drag-and-drop palette** — seven node kinds with sensible default labels.
+- **Drag-and-drop palette** — nine node kinds with sensible default labels, including a free-floating text box for annotations and a media card for images (URL or upload).
 - **Labels everywhere** — select or double-click any node or connection to type its label. Branching connectors auto-label: bottom outlet is *Yes/True*, right outlet is *No/False*.
 - **Validation with warnings** — the model's output is checked (single start/end, connectedness, edges exist, labels present). Warnings are shown, not silently discarded.
 - **JSON import/export** — share or back up diagrams as `.json`.
@@ -63,6 +63,19 @@ All API routes are under the backend on http://localhost:3001.
 | `POST /api/edit` | `{ "prompt": string, "current": Flowchart }` | A `Flowchart` |
 
 The model's JSON output goes through a repair loop before being returned, so malformed output is corrected rather than failing the request. On hard failures the backend walks the fallback chain (dynamic `*-flash-lite` Gemini models, newest first → Groq). When `GEMINI_API_KEY` is set, responses expanded by the oversimplification aid include an `X-Floo-Aid: Gemini Flash-Lite` header, and the prompt panel shows a notice.
+
+### Rate limits & input caps (M6)
+
+| Guard | Default | Env |
+| --- | --- | --- |
+| Generate/edit per IP | 5 / minute (`429` + `Retry-After`) | `RATE_LIMIT_PER_MIN` (0 disables) |
+| Shared Gemini RPM budget | 8 / minute across all flash-lite tiers — empty → skip Gemini, use Groq | `GEMINI_RPM` |
+| Concurrent LLM calls | 2 | `MAX_CONCURRENT_LLM` (0 disables) |
+| Daily request budget | unlimited | `DAILY_REQUEST_BUDGET` (UTC day, 0 = unlimited) |
+| Prompt length | ≤ 2000 chars | fixed |
+| Context | ≤ 3 items, ≤ 4000 chars each | fixed |
+
+An upstream Gemini `429` blocks every Gemini tier for the retry window so the fallback chain jumps straight to Groq instead of walking the other Gemini models.
 
 ## Diagram model
 

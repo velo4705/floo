@@ -1,4 +1,4 @@
-import type { Flowchart } from './flowchart.js'
+import { isFreeFloating, type Flowchart } from './flowchart.js'
 
 export type IssueSeverity = 'error' | 'warning'
 
@@ -138,7 +138,8 @@ export function validateFlowchart(fc: Flowchart): ValidationResult {
     fc.nodes.filter((n) => n.type === 'decision' || n.type === 'loop').map((n) => n.id),
   )
   for (const n of fc.nodes) {
-    if (n.type === 'start' || n.type === 'end') continue
+    // Text/media are free-floating annotations — connectivity does not apply.
+    if (n.type === 'start' || n.type === 'end' || isFreeFloating(n.type)) continue
     const hasIncoming = fc.edges.some((e) => e.target === n.id)
     const hasOutgoing = fc.edges.some((e) => e.source === n.id)
 

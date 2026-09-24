@@ -1,4 +1,13 @@
-export type NodeKind = 'start' | 'process' | 'decision' | 'input' | 'output' | 'loop' | 'end'
+export type NodeKind =
+  | 'start'
+  | 'process'
+  | 'decision'
+  | 'input'
+  | 'output'
+  | 'loop'
+  | 'end'
+  | 'text'
+  | 'media'
 
 export const NODE_KINDS: readonly NodeKind[] = [
   'start',
@@ -8,7 +17,13 @@ export const NODE_KINDS: readonly NodeKind[] = [
   'output',
   'loop',
   'end',
+  'text',
+  'media',
 ]
+
+export function isFreeFloating(kind: NodeKind): boolean {
+  return kind === 'text' || kind === 'media'
+}
 
 export interface FlowchartNode {
   id: string

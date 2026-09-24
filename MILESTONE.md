@@ -47,6 +47,8 @@ The gap in the market: most tools are manual editors with an AI button bolted on
 
 - **Progress:** M0–M4 complete. M4 added `validateFlowchart`/`repairFlowchart` in `@floo/shared` (deep structural checks + rule-based auto-fix) and a backend pipeline (`generate → validate → rule-repair → model re-prompt, max 2 retries`) wrapping the provider; the frontend shows non-blocking warnings from the same shared validator.
 
+- **Progress (M6 rate limiting):** shipped — 5 req/min/IP (`RATE_LIMIT_PER_MIN`), shared Gemini RPM budget (8, `GEMINI_RPM`) with skip-to-Groq on exhaustion, upstream-429 blocks all Gemini tiers for the retry window, max 2 concurrent LLM calls, optional `DAILY_REQUEST_BUDGET`, input caps (prompt ≤2k, context ≤3×4k). Remaining M6: auth, quotas per user (not just IP), doc/paste context.
+
 - M1 before M2: the manual editor validates the canvas before anything else exists.
 - M2 before M3: layout first, so AI output is clean from day one, not after cleanup.
 - M3–M5 are the core loop: "type a process → clean chart → refine it in conversation."

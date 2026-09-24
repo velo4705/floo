@@ -14,6 +14,8 @@ const DEFAULT_LABEL: Record<NodeKind, string> = {
   input: 'Input',
   output: 'Output',
   loop: 'Loop',
+  text: 'Text',
+  media: 'Media',
 }
 
 /**

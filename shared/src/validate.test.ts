@@ -153,11 +153,15 @@ describe('validateFlowchart', () => {
       nodes: [
         ...makeFlowchart().nodes,
         { id: 'o', type: 'process', label: 'Lonely', position: { x: 500, y: 500 } },
+        { id: 't', type: 'text', label: 'Note', position: { x: 700, y: 500 } },
+        { id: 'm', type: 'media', label: 'Shot', position: { x: 900, y: 500 }, metadata: { url: 'https://example.com/a.png' } },
       ],
     })
     const result = validateFlowchart(fc)
     expect(kinds(result)).toContain('orphan-node')
     expect(result.warnings.some((i) => i.kind === 'orphan-node' && i.id === 'o')).toBe(true)
+    expect(result.warnings.some((i) => i.id === 't')).toBe(false)
+    expect(result.warnings.some((i) => i.id === 'm')).toBe(false)
   })
 
   it('warns about self-loop edges', () => {

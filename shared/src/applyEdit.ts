@@ -30,7 +30,8 @@ export function applyEdit(previous: Flowchart, next: Flowchart): AppliedEdit {
 
   const nodes: FlowchartNode[] = next.nodes.map((n) => {
     const prev = prevById.get(n.id)
-    return prev ? { ...n, position: prev.position } : n
+    if (!prev) return n
+    return { ...n, position: prev.position, metadata: n.metadata ?? prev.metadata }
   })
 
   const edges: FlowchartEdge[] = next.edges
