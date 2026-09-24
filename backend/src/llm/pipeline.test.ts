@@ -185,6 +185,18 @@ describe('withOversimplifyAid', () => {
     expect(outcome.flowchart).toEqual(clean)
   })
 
+  it('expands a short architecture prompt collapsed to a 3-node skeleton', async () => {
+    const base = makePipelineBase(clean)
+    const expanded = makeDetailedFlowchart()
+    const expand = vi.fn().mockResolvedValue(expanded)
+    const wrapped = withOversimplifyAid(base, { expand, expandedBy: 'Gemini Flash-Lite' })
+    const prompt = 'system architecture for a chat app'
+    const outcome = await wrapped.generateOutcome!({ prompt })
+    expect(expand).toHaveBeenCalledWith({ prompt }, clean)
+    expect(outcome.expandedBy).toBe('Gemini Flash-Lite')
+    expect(outcome.flowchart).toEqual(expanded)
+  })
+
   it('expands an oversimplified result and reports the aid label', async () => {
     const base = makePipelineBase(clean)
     const expanded = makeDetailedFlowchart()

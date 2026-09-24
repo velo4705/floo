@@ -1,5 +1,6 @@
 import { isFlowchart } from '@floo/shared'
 
+import { RateWindow } from '../rateLimit.js'
 import { buildEditContent, buildRepairContent, buildUserContent } from './content.js'
 import { EDIT_PROMPT, EXPAND_PROMPT, REPAIR_PROMPT, SYSTEM_PROMPT } from './prompts.js'
 import { parseFlowchartContent } from './groq.js'
@@ -11,6 +12,8 @@ export interface GeminiOptions {
   apiKey: string
   model: string
   fetchImpl?: typeof fetch
+  /** Shared RPM budget across all Gemini tiers; block() on upstream 429. */
+  rateLimit?: RateWindow
 }
 
 /**
@@ -92,6 +95,10 @@ async function callGemini(
   systemInstruction: string,
   userText: string,
 ): Promise<string> {
+  if (options.rateLimit && !options.rateLimit.tryConsume()) {
+    throw new Error('Gemini RPM budget exhausted — skipping to the next tier.')
+  }
+
   const fetchImpl = options.fetchImpl ?? fetch
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}:generateContent`
 
@@ -116,6 +123,14 @@ async function callGemini(
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
     const message = body?.error?.message ?? `HTTP ${res.status}`
+    if (res.status === 429) {
+      // Shared budget blocks every Gemini tier so the chain jumps to Groq.
+      const retryAfterSec = Number(res.headers.get('retry-after'))
+      const blockMs =
+        Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec * 1000 : 60_000
+      options.rateLimit?.block(blockMs)
+      console.warn(`[gemini] ${options.model} HTTP 429 — blocking Gemini tiers for ${blockMs}ms`)
+    }
     throw new Error(`Gemini request failed: ${message}`)
   }
 
@@ -142,8 +157,13 @@ function requireFlowchart(text: string, phase: string): Flowchart {
 export class GeminiAdapter implements FlowchartProvider {
   private options: GeminiOptions
 
-  constructor(apiKey: string, model: string, fetchImpl?: typeof fetch) {
-    this.options = { apiKey, model, fetchImpl }
+  constructor(
+    apiKey: string,
+    model: string,
+    fetchImpl?: typeof fetch,
+    rateLimit?: RateWindow,
+  ) {
+    this.options = { apiKey, model, fetchImpl, rateLimit }
   }
 
   async generateFlowchart(request: FlowchartRequest): Promise<Flowchart> {

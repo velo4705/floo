@@ -13,7 +13,7 @@ export class GroqAdapter implements FlowchartProvider {
   private model: string
 
   constructor(apiKey: string, model = 'openai/gpt-oss-120b') {
-    this.client = new Groq({ apiKey })
+    this.client = new Groq({ apiKey, timeout: 30_000, maxRetries: 1 })
     this.model = model
   }
 

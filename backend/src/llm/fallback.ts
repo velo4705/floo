@@ -6,6 +6,11 @@ export interface FallbackTier {
   provider: FlowchartProvider
   /** Human-readable label for logs, e.g. "gemini-3.5-flash-lite". */
   label: string
+  /**
+   * Optional gate: when false the tier is skipped without attempting a call
+   * (e.g. shared Gemini RPM budget exhausted or blocked after an upstream 429).
+   */
+  available?: () => boolean
 }
 
 /**
@@ -62,6 +67,10 @@ export class FallbackProvider implements FlowchartProvider {
     for (const tier of this.tiers) {
       if (!supports(tier.provider)) {
         console.log(`[debug] ${operation}: skip ${tier.label} (does not support ${operation})`)
+        continue
+      }
+      if (tier.available && !tier.available()) {
+        console.log(`[debug] ${operation}: skip ${tier.label} (rate budget unavailable)`)
         continue
       }
       attempted += 1

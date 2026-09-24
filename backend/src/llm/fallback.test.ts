@@ -172,6 +172,39 @@ describe('FallbackProvider', () => {
     expect(() => new FallbackProvider([])).toThrow(/at least one tier/)
   })
 
+  it('skips tiers whose available() returns false', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const second = vi.fn().mockResolvedValue(chart)
+    const provider = new FallbackProvider([
+      {
+        label: 'gemini-blocked',
+        provider: { generateFlowchart: vi.fn().mockRejectedValue(new Error('should not run')) },
+        available: () => false,
+      },
+      tier('groq', { generateFlowchart: second }),
+    ])
+
+    const result = await provider.generateFlowchart(request)
+
+    expect(result).toEqual(chart)
+    expect(second).toHaveBeenCalledTimes(1)
+    const lines = log.mock.calls.map((args) => String(args[0]))
+    expect(lines.some((l) => l.includes('skip gemini-blocked (rate budget unavailable)'))).toBe(true)
+    warn.mockRestore()
+    log.mockRestore()
+  })
+
+  it('when every available tier is gated out, throws no-tier-supports', async () => {
+    const provider = new FallbackProvider([
+      { label: 'a', provider: { generateFlowchart: vi.fn() }, available: () => false },
+    ])
+
+    await expect(provider.generateFlowchart(request)).rejects.toThrow(
+      /No model tier supports generateFlowchart/,
+    )
+  })
+
   it('exposes tier labels in order', () => {
     const provider = new FallbackProvider([
       tier('gemini-3.5-flash-lite', { generateFlowchart: vi.fn() }),

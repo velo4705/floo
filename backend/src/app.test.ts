@@ -26,7 +26,7 @@ function mockProvider(overrides?: Partial<FlowchartProvider>): FlowchartProvider
 
 describe('POST /api/generate', () => {
   it('returns 400 when prompt is missing', async () => {
-    const app = createApp(mockProvider())
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0 })
     const res = await app.request('/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -38,7 +38,7 @@ describe('POST /api/generate', () => {
   })
 
   it('returns 400 when prompt is empty', async () => {
-    const app = createApp(mockProvider())
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0 })
     const res = await app.request('/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -47,9 +47,79 @@ describe('POST /api/generate', () => {
     expect(res.status).toBe(400)
   })
 
+  it('returns 400 when prompt exceeds the character cap', async () => {
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0 })
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'x'.repeat(2001) }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toMatchObject({ error: expect.stringContaining('at most 2000') })
+  })
+
+  it('returns 400 when context has too many items', async () => {
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0 })
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'ok', context: ['a', 'b', 'c', 'd'] }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toMatchObject({ error: expect.stringContaining('at most 3') })
+  })
+
+  it('returns 400 when a context item is too long', async () => {
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0 })
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'ok', context: ['y'.repeat(4001)] }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toMatchObject({ error: expect.stringContaining('at most 4000') })
+  })
+
+  it('returns 429 with Retry-After after rate limit per IP', async () => {
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 2 })
+    const call = () =>
+      app.request('/api/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: 'ship an app' }),
+      })
+
+    expect((await call()).status).toBe(200)
+    expect((await call()).status).toBe(200)
+    const blocked = await call()
+    expect(blocked.status).toBe(429)
+    expect(blocked.headers.get('Retry-After')).toBeTruthy()
+    const body = await blocked.json()
+    expect(body).toMatchObject({ error: expect.stringContaining('Rate limit') })
+  })
+
+  it('returns 429 when the daily budget is exhausted', async () => {
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0, dailyBudget: 1 })
+    const call = () =>
+      app.request('/api/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: 'ship an app' }),
+      })
+
+    expect((await call()).status).toBe(200)
+    const blocked = await call()
+    expect(blocked.status).toBe(429)
+    const body = await blocked.json()
+    expect(body).toMatchObject({ error: expect.stringContaining('Daily') })
+  })
+
   it('returns the flowchart on success', async () => {
     const provider = mockProvider()
-    const app = createApp(provider)
+    const app = createApp(provider, { rateLimitPerMinute: 0 })
     const res = await app.request('/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -67,7 +137,7 @@ describe('POST /api/generate', () => {
 
   it('passes context through to the provider', async () => {
     const provider = mockProvider()
-    const app = createApp(provider)
+    const app = createApp(provider, { rateLimitPerMinute: 0 })
     const res = await app.request('/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -85,6 +155,7 @@ describe('POST /api/generate', () => {
       mockProvider({
         generateFlowchart: vi.fn().mockRejectedValue(new Error('Groq is down')),
       }),
+      { rateLimitPerMinute: 0 },
     )
     const res = await app.request('/api/generate', {
       method: 'POST',
@@ -103,7 +174,7 @@ describe('POST /api/generate', () => {
         expandedBy: 'Gemini Flash-Lite',
       }),
     })
-    const app = createApp(provider)
+    const app = createApp(provider, { rateLimitPerMinute: 0 })
     const res = await app.request('/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -121,7 +192,7 @@ describe('POST /api/generate', () => {
     const provider = mockProvider({
       generateOutcome: vi.fn().mockResolvedValue({ flowchart: mockFlowchart }),
     })
-    const app = createApp(provider)
+    const app = createApp(provider, { rateLimitPerMinute: 0 })
     const res = await app.request('/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -133,7 +204,7 @@ describe('POST /api/generate', () => {
 
   it('falls back to generateFlowchart when generateOutcome is absent', async () => {
     const provider = mockProvider()
-    const app = createApp(provider)
+    const app = createApp(provider, { rateLimitPerMinute: 0 })
     const res = await app.request('/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -147,7 +218,7 @@ describe('POST /api/generate', () => {
 
 describe('POST /api/edit', () => {
   it('returns 400 when the prompt is missing', async () => {
-    const app = createApp(mockProvider())
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0 })
     const res = await app.request('/api/edit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -157,7 +228,7 @@ describe('POST /api/edit', () => {
   })
 
   it('returns 400 when the current flowchart is not a flowchart', async () => {
-    const app = createApp(mockProvider())
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0 })
     const res = await app.request('/api/edit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -167,7 +238,7 @@ describe('POST /api/edit', () => {
   })
 
   it('returns 400 when the backend does not support editing', async () => {
-    const app = createApp(mockProvider())
+    const app = createApp(mockProvider(), { rateLimitPerMinute: 0 })
     const res = await app.request('/api/edit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -184,7 +255,7 @@ describe('POST /api/edit', () => {
       edges: [...mockFlowchart.edges, { id: 'e9', source: 'n2', target: 'n9' }],
     }
     const provider = mockProvider({ editFlowchart: vi.fn().mockResolvedValue(edited) })
-    const app = createApp(provider)
+    const app = createApp(provider, { rateLimitPerMinute: 0 })
 
     const res = await app.request('/api/edit', {
       method: 'POST',
@@ -204,6 +275,7 @@ describe('POST /api/edit', () => {
       mockProvider({
         editFlowchart: vi.fn().mockRejectedValue(new Error('edit boom')),
       }),
+      { rateLimitPerMinute: 0 },
     )
     const res = await app.request('/api/edit', {
       method: 'POST',

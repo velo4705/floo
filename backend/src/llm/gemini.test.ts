@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { RateWindow } from '../rateLimit.js'
 import { expandFlowchart, GeminiAdapter, listFlashLiteModels, orderWithPin } from './gemini.js'
 
 import type { Flowchart } from '@floo/shared'
@@ -274,6 +275,54 @@ describe('GeminiAdapter', () => {
     const adapter = new GeminiAdapter('k', MODEL, fetchImpl)
 
     await expect(adapter.generateFlowchart(request)).rejects.toThrow('quota exceeded')
+  })
+
+  it('skips the HTTP call when the shared RPM budget is exhausted', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const budget = new RateWindow(1, 60_000)
+    expect(budget.tryConsume()).toBe(true)
+
+    const fetchImpl = vi.fn() as unknown as typeof fetch
+    const adapter = new GeminiAdapter('k', MODEL, fetchImpl, budget)
+
+    await expect(adapter.generateFlowchart(request)).rejects.toThrow(/RPM budget exhausted/)
+    expect(fetchImpl).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('blocks the shared budget on HTTP 429 so other Gemini tiers skip', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const budget = new RateWindow(8, 60_000)
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({ error: { message: 'quota exceeded' } }, 429),
+    ) as unknown as typeof fetch
+    const adapter = new GeminiAdapter('k', MODEL, fetchImpl, budget)
+
+    await expect(adapter.generateFlowchart(request)).rejects.toThrow('quota exceeded')
+    expect(budget.hasCapacity()).toBe(false)
+    expect(budget.blocked).toBe(true)
+
+    // Next Gemini call refuses without hitting the network.
+    const fetchMock = fetchImpl as unknown as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+    await expect(adapter.generateFlowchart(request)).rejects.toThrow(/RPM budget exhausted/)
+    expect(fetchMock).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('consumes one budget slot per successful call', async () => {
+    const budget = new RateWindow(2, 60_000)
+    const fetchImpl = vi
+      .fn()
+      .mockImplementation(async () => okGenerate()) as unknown as typeof fetch
+    const adapter = new GeminiAdapter('k', MODEL, fetchImpl, budget)
+
+    await adapter.generateFlowchart(request)
+    await adapter.generateFlowchart(request)
+    expect(budget.hasCapacity()).toBe(false)
+
+    await expect(adapter.generateFlowchart(request)).rejects.toThrow(/RPM budget exhausted/)
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
   it('throws when the model returns invalid flowchart JSON', async () => {
