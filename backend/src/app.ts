@@ -5,7 +5,8 @@ import type { Context } from 'hono'
 import { isFlowchart } from '@floo/shared'
 
 import { DailyBudget, IpRateLimiter, envInt } from './rateLimit.js'
-import { parsePromptBody } from './validation.js'
+import { markedNodesHint } from './llm/prompts.js'
+import { parseMarkedIds, parsePromptBody } from './validation.js'
 
 import type { FlowchartProvider } from './llm/adapter.js'
 
@@ -105,6 +106,11 @@ export function createApp(provider: FlowchartProvider, options: AppOptions = {})
       return c.json({ error: 'current must be a valid flowchart object' }, 400)
     }
 
+    const marks = parseMarkedIds(body)
+    if (!marks.ok) {
+      return c.json({ error: marks.error }, 400)
+    }
+
     if (!provider.editFlowchart) {
       return c.json({ error: 'This backend does not support editing.' }, 400)
     }
@@ -115,7 +121,7 @@ export function createApp(provider: FlowchartProvider, options: AppOptions = {})
     try {
       const started = Date.now()
       const flowchart = await provider.editFlowchart(body.current, {
-        prompt: parsed.prompt,
+        prompt: parsed.prompt + markedNodesHint(body.current.nodes, marks.ids),
         context: parsed.context,
       })
       console.log(`[debug] POST /api/edit done in ${Date.now() - started}ms`)

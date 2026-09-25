@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 import { applyEdit, isLikelyOversimplified, validateFlowchart } from '@floo/shared'
 
 import { isFlowchart, toFlowchart, toRfEdges, toRfNodes } from '../lib/adapters'
+import { markedNodeIds } from '../lib/drawing'
 import { layoutFlowchart } from '../lib/layout'
 
 import type { AppliedEdit } from '@floo/shared'
+import type { Drawing } from '@floo/shared'
 import type { FlooNode, FlooEdge } from '../lib/adapters'
 
 type Mode = 'create' | 'edit'
@@ -13,6 +15,7 @@ type Mode = 'create' | 'edit'
 interface PromptPanelProps {
   nodes: FlooNode[]
   edges: FlooEdge[]
+  drawings: Drawing[]
   /** Replace the whole graph in one history-aware commit. */
   onApplyGraph: (nodes: FlooNode[], edges: FlooEdge[]) => void
 }
@@ -35,7 +38,7 @@ function describeChanges(changes: AppliedEdit['changes']): string[] {
   return parts
 }
 
-export function PromptPanel({ nodes, edges, onApplyGraph }: PromptPanelProps) {
+export function PromptPanel({ nodes, edges, drawings, onApplyGraph }: PromptPanelProps) {
   const [prompt, setPrompt] = useState('')
   const [mode, setMode] = useState<Mode>('create')
   const [loading, setLoading] = useState(false)
@@ -81,7 +84,11 @@ export function PromptPanel({ nodes, edges, onApplyGraph }: PromptPanelProps) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(
           useEdit
-            ? { prompt: trimmed, current: toFlowchart(nodes, edges) }
+            ? {
+                prompt: trimmed,
+                current: toFlowchart(nodes, edges),
+                markedNodeIds: markedNodeIds(drawings, nodes),
+              }
             : { prompt: trimmed },
         ),
         // Backend LLM calls time out around 30s each; give the chain room

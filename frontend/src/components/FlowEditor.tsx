@@ -16,7 +16,7 @@ import {
   type NodeChange,
   type OnSelectionChangeParams,
 } from '@xyflow/react'
-import type { NodeKind } from '@floo/shared'
+import type { Drawing, DrawingPoint, NodeKind } from '@floo/shared'
 
 import '@xyflow/react/dist/style.css'
 
@@ -41,9 +41,18 @@ import {
   type HistoryStacks,
 } from '../lib/history'
 import { createId, defaultLabel } from '../lib/ids'
+import {
+  PEN_COLORS,
+  PEN_WIDTHS,
+  anchorForStroke,
+  drawingsBounds,
+  unionRect,
+  type DrawTool,
+} from '../lib/drawing'
 import { sampleFlowchart } from '../lib/sample'
 import { applyTheme, getInitialTheme, type Theme } from '../lib/theme'
 import FlooNode from '../nodes/FlooNode'
+import { DrawLayer } from './DrawLayer'
 import { EdgeInspector } from './EdgeInspector'
 import { FlooEdge } from './FlooEdge'
 import { NodeInspector } from './NodeInspector'
@@ -78,6 +87,11 @@ function FlowEditorInner() {
   const [edges, setEdges, onEdgesChangeRaw] = useEdgesState(toRfEdges(sampleFlowchart))
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null)
+  const [drawings, setDrawings] = useState<Drawing[]>([])
+  const [tool, setTool] = useState<DrawTool>('select')
+  const [penColor, setPenColor] = useState<string>(PEN_COLORS[0])
+  const [penWidth, setPenWidth] = useState<number>(PEN_WIDTHS[1])
   const [labelFocusToken, setLabelFocusToken] = useState(0)
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
   const [history, setHistory] = useState<HistoryStacks>(createHistory)
@@ -87,10 +101,10 @@ function FlowEditorInner() {
   const [exporting, setExporting] = useState(false)
 
   // Latest graph for history pushes (synced after each committed render).
-  const graphRef = useRef<GraphSnapshot>({ nodes, edges })
+  const graphRef = useRef<GraphSnapshot>({ nodes, edges, drawings })
   useEffect(() => {
-    graphRef.current = { nodes, edges }
-  }, [nodes, edges])
+    graphRef.current = { nodes, edges, drawings }
+  }, [nodes, edges, drawings])
 
   // One undo entry per drag gesture / label typing burst.
   const dragActiveRef = useRef(false)
@@ -117,10 +131,11 @@ function FlowEditorInner() {
 
   /** Replace the whole graph as a single undoable step. */
   const applyGraph = useCallback(
-    (nextNodes: FlooNodeType[], nextEdges: FlooEdgeType[]) => {
+    (nextNodes: FlooNodeType[], nextEdges: FlooEdgeType[], nextDrawings?: Drawing[]) => {
       pushHistory()
       setNodes(nextNodes)
       setEdges(nextEdges)
+      if (nextDrawings !== undefined) setDrawings(nextDrawings)
     },
     [pushHistory, setNodes, setEdges],
   )
@@ -131,9 +146,10 @@ function FlowEditorInner() {
       if (!step) return h
       setNodes(step.present.nodes)
       setEdges(step.present.edges)
+      setDrawings(step.present.drawings)
       return step.stacks
     })
-  }, [setNodes, setEdges])
+  }, [setNodes, setEdges, setDrawings])
 
   const redo = useCallback(() => {
     setHistory((h) => {
@@ -141,15 +157,32 @@ function FlowEditorInner() {
       if (!step) return h
       setNodes(step.present.nodes)
       setEdges(step.present.edges)
+      setDrawings(step.present.drawings)
       return step.stacks
     })
-  }, [setNodes, setEdges])
+  }, [setNodes, setEdges, setDrawings])
+
+  const deleteDrawing = useCallback(
+    (id: string) => {
+      pushHistory()
+      setDrawings((ds) => ds.filter((d) => d.id !== id))
+      setSelectedDrawingId((current) => (current === id ? null : current))
+    },
+    [pushHistory],
+  )
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       const tag = target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return
+
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !e.metaKey && !e.ctrlKey && selectedDrawingId) {
+        e.preventDefault()
+        deleteDrawing(selectedDrawingId)
+        return
+      }
+
       if (!(e.metaKey || e.ctrlKey)) return
 
       if (e.key === 'z' && !e.shiftKey) {
@@ -162,7 +195,21 @@ function FlowEditorInner() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [undo, redo])
+  }, [undo, redo, selectedDrawingId, deleteDrawing])
+
+  // Ink anchored to a node disappears with it (deletion, AI edit, relayout).
+  useEffect(() => {
+    setDrawings((ds) => {
+      const next = ds.filter((d) => !d.anchorNodeId || nodes.some((n) => n.id === d.anchorNodeId))
+      return next.length === ds.length ? ds : next
+    })
+  }, [nodes])
+
+  useEffect(() => {
+    if (selectedDrawingId && !drawings.some((d) => d.id === selectedDrawingId)) {
+      setSelectedDrawingId(null)
+    }
+  }, [drawings, selectedDrawingId])
 
   /** Classify React Flow changes: only structural/drag commits hit history. */
   const onNodesChange = useCallback(
@@ -229,6 +276,9 @@ function FlowEditorInner() {
     setSelectedNodeId(
       selection.edges.length === 0 && selection.nodes.length === 1 ? selection.nodes[0]!.id : null,
     )
+    if (selection.nodes.length > 0 || selection.edges.length > 0) {
+      setSelectedDrawingId(null)
+    }
   }, [])
 
   const onLabelEditShortcut = useCallback(() => {
@@ -272,6 +322,58 @@ function FlowEditorInner() {
       setLayingOut(false)
     }
   }, [nodes, edges, applyGraph])
+
+  const selectDrawing = useCallback(
+    (id: string | null) => {
+      setSelectedDrawingId(id)
+      if (id) {
+        setNodes((nds) =>
+          nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds,
+        )
+        setEdges((eds) =>
+          eds.some((e) => e.selected) ? eds.map((e) => (e.selected ? { ...e, selected: false } : e)) : eds,
+        )
+        setSelectedNodeId(null)
+        setSelectedEdgeId(null)
+      }
+    },
+    [setNodes, setEdges],
+  )
+
+  const beginDrawingEdit = useCallback(() => {
+    pushHistory()
+  }, [pushHistory])
+
+  const onDrawCommit = useCallback(
+    (points: DrawingPoint[]) => {
+      const anchor = anchorForStroke(points, nodes)
+      let relative = points
+      const node = anchor ? nodes.find((n) => n.id === anchor) : undefined
+      if (node) {
+        relative = points.map((p) => ({ x: p.x - node.position.x, y: p.y - node.position.y }))
+      }
+      pushHistory()
+      setDrawings((ds) => [
+        ...ds,
+        { id: createId(), points: relative, color: penColor, width: penWidth, anchorNodeId: anchor },
+      ])
+    },
+    [nodes, pushHistory, penColor, penWidth],
+  )
+
+  const onEraseDrawings = useCallback((ids: string[]) => {
+    setDrawings((ds) => ds.filter((d) => !ids.includes(d.id)))
+  }, [])
+
+  const onMoveDrawing = useCallback((id: string, delta: DrawingPoint) => {
+    setDrawings((ds) =>
+      ds.map((d) =>
+        d.id === id
+          ? { ...d, points: d.points.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })) }
+          : d,
+      ),
+    )
+  }, [])
 
   const addNode = useCallback(
     (kind: NodeKind, position: { x: number; y: number }) => {
@@ -321,7 +423,7 @@ function FlowEditorInner() {
   )
 
   const exportJson = () => {
-    const flowchart = toFlowchart(nodes, edges)
+    const flowchart = { ...toFlowchart(nodes, edges), drawings }
     const blob = new Blob([JSON.stringify(flowchart, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -335,13 +437,13 @@ function FlowEditorInner() {
     try {
       const parsed: unknown = JSON.parse(await file.text())
       if (!isFlowchart(parsed)) throw new Error('Not a valid Floo flowchart.')
-      applyGraph(toRfNodes(parsed), toRfEdges(parsed))
+      applyGraph(toRfNodes(parsed), toRfEdges(parsed), parsed.drawings ?? [])
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Could not read file.')
     }
   }
 
-  const isCanvasEmpty = nodes.length === 0 && edges.length === 0
+  const isCanvasEmpty = nodes.length === 0 && edges.length === 0 && drawings.length === 0
 
   const exportImage = useCallback(
     async (format: ImageFormat) => {
@@ -355,11 +457,20 @@ function FlowEditorInner() {
         setEdges((eds) => eds.map((e) => (e.selected ? { ...e, selected: false } : e)))
         setSelectedNodeId(null)
         setSelectedEdgeId(null)
+        setSelectedDrawingId(null)
         await new Promise<void>((resolve) => {
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
         })
 
-        const plan = planExport(getNodesBounds(nodes))
+        const nodeBounds = getNodesBounds(nodes)
+        const inkBounds = drawingsBounds(drawings, nodes)
+        const content =
+          inkBounds === null
+            ? nodeBounds
+            : nodes.length === 0
+              ? inkBounds
+              : unionRect(nodeBounds, inkBounds)
+        const plan = planExport(content)
         const dataUrl = await captureFlowchart({
           viewportEl,
           plan,
@@ -374,7 +485,7 @@ function FlowEditorInner() {
         setExporting(false)
       }
     },
-    [isCanvasEmpty, exporting, nodes, theme, getNodesBounds, setNodes, setEdges],
+    [isCanvasEmpty, exporting, nodes, drawings, theme, getNodesBounds, setNodes, setEdges],
   )
 
   const clearFlowchart = useCallback(() => {
@@ -383,14 +494,69 @@ function FlowEditorInner() {
     pushHistory()
     setNodes([])
     setEdges([])
+    setDrawings([])
     setSelectedNodeId(null)
     setSelectedEdgeId(null)
-  }, [isCanvasEmpty, pushHistory, setNodes, setEdges])
+    setSelectedDrawingId(null)
+  }, [isCanvasEmpty, pushHistory, setNodes, setEdges, setDrawings])
 
   return (
     <div className="floo-editor">
       <div className="floo-sidebar">
         <Palette onAdd={onPaletteAdd} />
+        <div className="floo-tools">
+          <div className="floo-sidebar__btn-row floo-tools__modes">
+            <button
+              type="button"
+              className={`floo-sidebar__btn${tool === 'select' ? ' is-active' : ''}`}
+              onClick={() => setTool('select')}
+            >
+              Select
+            </button>
+            <button
+              type="button"
+              className={`floo-sidebar__btn${tool === 'pen' ? ' is-active' : ''}`}
+              onClick={() => setTool('pen')}
+            >
+              Draw
+            </button>
+            <button
+              type="button"
+              className={`floo-sidebar__btn${tool === 'eraser' ? ' is-active' : ''}`}
+              onClick={() => setTool('eraser')}
+            >
+              Eraser
+            </button>
+          </div>
+          {tool === 'pen' && (
+            <>
+              <div className="floo-tools__colors">
+                {PEN_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`floo-tools__color${penColor === c ? ' is-active' : ''}`}
+                    style={{ background: c }}
+                    onClick={() => setPenColor(c)}
+                    aria-label={`Pen color ${c}`}
+                  />
+                ))}
+              </div>
+              <div className="floo-sidebar__btn-row floo-tools__widths">
+                {PEN_WIDTHS.map((w, i) => (
+                  <button
+                    key={w}
+                    type="button"
+                    className={`floo-sidebar__btn${penWidth === w ? ' is-active' : ''}`}
+                    onClick={() => setPenWidth(w)}
+                  >
+                    {i === 0 ? 'Thin' : i === 1 ? 'Medium' : 'Thick'}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         {selectedNode && (
           <NodeInspector
             node={selectedNode}
@@ -470,7 +636,10 @@ function FlowEditorInner() {
           </button>
         </div>
       </div>
-      <div className="floo-canvas" ref={canvasRef}>
+      <div
+        className={`floo-canvas${tool === 'pen' ? ' floo-canvas--pen' : tool === 'eraser' ? ' floo-canvas--eraser' : ''}`}
+        ref={canvasRef}
+      >
         <ReactFlow
           nodes={renderNodes}
           edges={renderEdges}
@@ -492,7 +661,21 @@ function FlowEditorInner() {
           <Controls />
           <MiniMap pannable zoomable />
         </ReactFlow>
-        <PromptPanel nodes={nodes} edges={edges} onApplyGraph={applyGraph} />
+        <DrawLayer
+          containerRef={canvasRef}
+          nodes={nodes}
+          drawings={drawings}
+          tool={tool}
+          color={penColor}
+          width={penWidth}
+          selectedId={selectedDrawingId}
+          onSelect={selectDrawing}
+          onDrawCommit={onDrawCommit}
+          onBeginEdit={beginDrawingEdit}
+          onErase={onEraseDrawings}
+          onMoveStroke={onMoveDrawing}
+        />
+        <PromptPanel nodes={nodes} edges={edges} drawings={drawings} onApplyGraph={applyGraph} />
       </div>
     </div>
   )

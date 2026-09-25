@@ -270,6 +270,70 @@ describe('POST /api/edit', () => {
     })
   })
 
+  it('appends a canvas-mark hint when markedNodeIds reference real nodes', async () => {
+    const provider = mockProvider({ editFlowchart: vi.fn().mockResolvedValue(mockFlowchart) })
+    const app = createApp(provider, { rateLimitPerMinute: 0 })
+
+    const res = await app.request('/api/edit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prompt: 'fix this',
+        current: mockFlowchart,
+        markedNodeIds: ['n2', 'ghost', 'n2'],
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(provider.editFlowchart).toHaveBeenCalledWith(mockFlowchart, {
+      prompt: expect.stringContaining('fix this\n\n[Canvas marks]'),
+      context: undefined,
+    })
+    const call = vi.mocked(provider.editFlowchart!).mock.calls[0]![1] as { prompt: string }
+    expect(call.prompt).toContain('"Do thing"')
+    expect(call.prompt).not.toContain('ghost')
+  })
+
+  it('keeps the prompt untouched when no marked id resolves to a node', async () => {
+    const provider = mockProvider({ editFlowchart: vi.fn().mockResolvedValue(mockFlowchart) })
+    const app = createApp(provider, { rateLimitPerMinute: 0 })
+
+    const res = await app.request('/api/edit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prompt: 'fix this',
+        current: mockFlowchart,
+        markedNodeIds: ['ghost'],
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(provider.editFlowchart).toHaveBeenCalledWith(mockFlowchart, {
+      prompt: 'fix this',
+      context: undefined,
+    })
+  })
+
+  it('returns 400 when markedNodeIds is malformed', async () => {
+    const app = createApp(mockProvider({ editFlowchart: vi.fn().mockResolvedValue(mockFlowchart) }), {
+      rateLimitPerMinute: 0,
+    })
+    const payloads: unknown[] = [
+      'n2',
+      [1],
+      Array.from({ length: 51 }, (_, i) => `n${i}`),
+    ]
+    for (const markedNodeIds of payloads) {
+      const res = await app.request('/api/edit', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: 'fix', current: mockFlowchart, markedNodeIds }),
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string }
+      expect(body.error).toContain('markedNodeIds')
+    }
+  })
+
   it('returns 502 when the provider edit throws', async () => {
     const app = createApp(
       mockProvider({

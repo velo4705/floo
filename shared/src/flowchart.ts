@@ -40,9 +40,43 @@ export interface FlowchartEdge {
   label?: string
 }
 
+export interface DrawingPoint {
+  x: number
+  y: number
+}
+
+export interface Drawing {
+  id: string
+  points: DrawingPoint[]
+  color: string
+  width: number
+  /** When set, points are relative to this node's position and follow it. */
+  anchorNodeId?: string
+}
+
 export interface Flowchart {
   nodes: FlowchartNode[]
   edges: FlowchartEdge[]
+  drawings?: Drawing[]
+}
+
+export function isDrawing(value: unknown): value is Drawing {
+  if (typeof value !== 'object' || value === null) return false
+  const d = value as Record<string, unknown>
+  if (typeof d.id !== 'string' || d.id.length === 0) return false
+  if (typeof d.color !== 'string' || d.color.length === 0) return false
+  if (typeof d.width !== 'number' || !Number.isFinite(d.width) || d.width <= 0) return false
+  if (d.anchorNodeId !== undefined && typeof d.anchorNodeId !== 'string') return false
+  if (!Array.isArray(d.points) || d.points.length < 2) return false
+  return d.points.every(
+    (p) =>
+      typeof p === 'object' &&
+      p !== null &&
+      typeof (p as DrawingPoint).x === 'number' &&
+      Number.isFinite((p as DrawingPoint).x) &&
+      typeof (p as DrawingPoint).y === 'number' &&
+      Number.isFinite((p as DrawingPoint).y),
+  )
 }
 
 /** Shape guard: checks the runtime shape of an unknown value without deep validation. */
@@ -68,6 +102,7 @@ export function isFlowchart(value: unknown): value is Flowchart {
         typeof (e as FlowchartEdge).id === 'string' &&
         typeof (e as FlowchartEdge).source === 'string' &&
         typeof (e as FlowchartEdge).target === 'string',
-    )
+    ) &&
+    (f.drawings === undefined || (Array.isArray(f.drawings) && f.drawings.every(isDrawing)))
   )
 }

@@ -25,7 +25,7 @@ function snap(label: string): GraphSnapshot {
     target: label,
     data: {},
   }
-  return { nodes: [node], edges: [edge] }
+  return { nodes: [node], edges: [edge], drawings: [] }
 }
 
 describe('history stacks', () => {
@@ -87,10 +87,49 @@ describe('history stacks', () => {
 
   it('does not alias snapshot arrays with later mutations of the source arrays', () => {
     const a = snap('a')
+    a.drawings = [
+      {
+        id: 'd0',
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+        color: '#000',
+        width: 2,
+      },
+    ]
     const h = pushStack(createHistory(), a)
     a.nodes = []
     a.edges = []
+    a.drawings = []
     expect(h.past[0]!.nodes).toHaveLength(1)
     expect(h.past[0]!.edges).toHaveLength(1)
+    expect(h.past[0]!.drawings).toHaveLength(1)
+  })
+
+  it('round-trips drawings through undo and redo', () => {
+    const withInk: GraphSnapshot = {
+      ...snap('a'),
+      drawings: [
+        {
+          id: 'd1',
+          points: [
+            { x: 0, y: 0 },
+            { x: 10, y: 10 },
+          ],
+          color: '#9333ea',
+          width: 5,
+        },
+      ],
+    }
+    const empty = snap('b')
+    const h = pushStack(createHistory(), withInk)
+
+    const undone = undoStacks(h, empty)!
+    expect(undone.present.drawings).toHaveLength(1)
+    expect(undone.present.drawings[0]!.id).toBe('d1')
+
+    const redone = redoStacks(undone.stacks, undone.present)!
+    expect(redone.present.drawings).toHaveLength(0)
   })
 })

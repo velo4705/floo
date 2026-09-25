@@ -1,6 +1,7 @@
 const MAX_PROMPT_CHARS = 2000
 const MAX_CONTEXT_ITEMS = 3
 const MAX_CONTEXT_CHARS = 4000
+const MAX_MARKED_IDS = 50
 
 type ParseOk = { ok: true; prompt: string; context?: string[] }
 type ParseErr = { ok: false; error: string }
@@ -39,4 +40,26 @@ export function parsePromptBody(body: Record<string, unknown> | null): ParseResu
   return { ok: true, prompt: body.prompt, context }
 }
 
-export { MAX_PROMPT_CHARS, MAX_CONTEXT_ITEMS, MAX_CONTEXT_CHARS }
+type MarkedOk = { ok: true; ids: string[] }
+type MarkedErr = { ok: false; error: string }
+type MarkedResult = MarkedOk | MarkedErr
+
+export function parseMarkedIds(body: Record<string, unknown> | null): MarkedResult {
+  const raw = body?.markedNodeIds
+  if (raw === undefined || raw === null) return { ok: true, ids: [] }
+  if (!Array.isArray(raw)) {
+    return { ok: false, error: 'markedNodeIds must be an array of strings' }
+  }
+  if (raw.some((x: unknown) => typeof x !== 'string')) {
+    return { ok: false, error: 'markedNodeIds must contain only strings' }
+  }
+  if (raw.length > MAX_MARKED_IDS) {
+    return {
+      ok: false,
+      error: `markedNodeIds must have at most ${MAX_MARKED_IDS} items (got ${raw.length})`,
+    }
+  }
+  return { ok: true, ids: raw as string[] }
+}
+
+export { MAX_PROMPT_CHARS, MAX_CONTEXT_ITEMS, MAX_CONTEXT_CHARS, MAX_MARKED_IDS }

@@ -1,3 +1,5 @@
+import type { FlowchartNode } from '@floo/shared'
+
 /**
  * System prompt that instructs the LLM to output a valid Flowchart JSON
  * matching the schema in @floo/shared.
@@ -141,3 +143,30 @@ Rules:
 8. Set ALL positions to { "x": 0, "y": 0 }.
 9. IDs unique strings (n1, n2, e1, e2...).
 10. Return JSON only.`
+
+const MAX_HINT_NODES = 20
+
+/**
+ * Targeting hint appended to edit prompts when the user circled/marked nodes
+ * on the canvas. Returns '' when no marked id resolves to a real node.
+ */
+export function markedNodesHint(nodes: FlowchartNode[], ids: string[]): string {
+  if (ids.length === 0) return ''
+  const known = new Map(nodes.map((n) => [n.id, n]))
+  const described: string[] = []
+  const seen = new Set<string>()
+  for (const id of ids) {
+    if (seen.has(id)) continue
+    const node = known.get(id)
+    if (!node) continue
+    seen.add(id)
+    described.push(`"${node.label}" (${node.type}, id ${node.id})`)
+    if (described.length >= MAX_HINT_NODES) break
+  }
+  if (described.length === 0) return ''
+  return (
+    `\n\n[Canvas marks] The user drew marks (circles, arrows) over these nodes on the canvas: ` +
+    `${described.join('; ')}. Treat the request as primarily targeting these marked nodes, ` +
+    `unless the request clearly refers to something else.`
+  )
+}

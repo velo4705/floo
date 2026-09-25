@@ -233,12 +233,72 @@
   color: var(--text-soft);
 }
 
+/* Drawing tools */
+.floo-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-sidebar);
+  background: var(--bg-subtle);
+  flex-shrink: 0;
+}
+
+.floo-tools__modes .floo-sidebar__btn {
+  padding: 7px 4px;
+}
+
+.floo-sidebar__btn.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.floo-tools__colors {
+  display: flex;
+  gap: 8px;
+}
+
+.floo-tools__color {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.floo-tools__color.is-active {
+  border-color: var(--text-strong);
+  box-shadow: 0 0 0 2px var(--bg-subtle);
+}
+
+.floo-tools__widths .floo-sidebar__btn {
+  padding: 5px 4px;
+  font-size: 12px;
+}
+
+.floo-draw-layer__select {
+  stroke: var(--focus-ring);
+  opacity: 0.45;
+}
+
 /* Canvas */
 .floo-canvas {
   position: relative;
   flex: 1;
   min-height: 0;
   background: var(--bg);
+}
+
+.floo-canvas--pen,
+.floo-canvas--eraser {
+  touch-action: none;
+}
+
+.floo-canvas--pen *,
+.floo-canvas--eraser * {
+  cursor: crosshair !important;
 }
 
 /* Nodes — sizes MUST match NODE_SIZE in lib/layout.ts (ELK reserves these). */
@@ -441,6 +501,58 @@
   outline-offset: 6px;
 }
 
+[data-theme='dark'] .floo-shape {
+  background: var(--bg-elevated);
+}
+
+[data-theme='dark'] .floo-node--start .floo-shape {
+  background: #173d20;
+  border-color: #66bb6a;
+}
+
+[data-theme='dark'] .floo-node--end .floo-shape {
+  background: #3b1a1c;
+  border-color: #ef5350;
+}
+
+[data-theme='dark'] .floo-node--process .floo-shape {
+  background: #123048;
+  border-color: #64b5f6;
+}
+
+[data-theme='dark'] .floo-node--decision .floo-shape {
+  background: #3a2617;
+  border-color: #ffb74d;
+}
+
+[data-theme='dark'] .floo-node--input .floo-shape {
+  background: #321f38;
+  border-color: #ba68c8;
+}
+
+[data-theme='dark'] .floo-node--output .floo-shape {
+  background: #15343a;
+  border-color: #4dd0e1;
+}
+
+[data-theme='dark'] .floo-node--loop .floo-shape {
+  background: #3a2617;
+  border-color: #ffb74d;
+}
+
+[data-theme='dark'] .floo-node--media .floo-shape {
+  background: #15343a;
+  border-color: #4dd0e1;
+}
+
+[data-theme='dark'] .floo-media-placeholder {
+  color: #4dd0e1;
+}
+
+[data-theme='dark'] .floo-label {
+  color: #f3f4f6;
+}
+
 /* React Flow treats type="input"/"output" as its built-in node types and
    injects padding, a fixed 150px width, border and white background on the
    wrapper — which shows up as a stray box behind our skewed parallelogram.
@@ -513,7 +625,7 @@
   left: 0;
   right: 0;
   padding: 20px;
-  background: var(--panel-fade);
+  background: var(--panel-bg);
   border-top: 1px solid var(--border-soft);
   transition: padding 0.2s;
 }

@@ -1,3 +1,5 @@
+import type { Drawing } from '@floo/shared'
+
 import type { FlooEdge, FlooNode } from './adapters'
 
 /** Max undo entries retained (bounds memory on large AI diagrams). */
@@ -6,6 +8,7 @@ export const HISTORY_LIMIT = 50
 export interface GraphSnapshot {
   nodes: FlooNode[]
   edges: FlooEdge[]
+  drawings: Drawing[]
 }
 
 /**
@@ -25,7 +28,10 @@ export function createHistory(): HistoryStacks {
 /** Record `current` as the state to return to; any redo branch is discarded. */
 export function pushStack(stacks: HistoryStacks, current: GraphSnapshot): HistoryStacks {
   return {
-    past: [...stacks.past, { nodes: current.nodes, edges: current.edges }].slice(-HISTORY_LIMIT),
+    past: [
+      ...stacks.past,
+      { nodes: current.nodes, edges: current.edges, drawings: current.drawings },
+    ].slice(-HISTORY_LIMIT),
     future: [],
   }
 }
@@ -42,7 +48,10 @@ export function undoStacks(stacks: HistoryStacks, present: GraphSnapshot): Histo
   return {
     stacks: {
       past: stacks.past.slice(0, -1),
-      future: [...stacks.future, { nodes: present.nodes, edges: present.edges }],
+      future: [
+        ...stacks.future,
+        { nodes: present.nodes, edges: present.edges, drawings: present.drawings },
+      ],
     },
     present: previous,
   }
@@ -54,7 +63,10 @@ export function redoStacks(stacks: HistoryStacks, present: GraphSnapshot): Histo
   const next = stacks.future[stacks.future.length - 1]!
   return {
     stacks: {
-      past: [...stacks.past, { nodes: present.nodes, edges: present.edges }],
+      past: [
+        ...stacks.past,
+        { nodes: present.nodes, edges: present.edges, drawings: present.drawings },
+      ],
       future: stacks.future.slice(0, -1),
     },
     present: next,

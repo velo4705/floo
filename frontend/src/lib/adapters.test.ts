@@ -267,4 +267,29 @@ describe('adapters', () => {
       isFlowchart({ nodes: [{ id: 'x', type: 'banana', label: '', position: { x: 0, y: 0 } }], edges: [] }),
     ).toBe(false)
   })
+
+  it('validates the optional drawings array', () => {
+    const base = { nodes: [], edges: [] }
+    const stroke = {
+      id: 'd1',
+      points: [
+        { x: 0, y: 0 },
+        { x: 5, y: 5 },
+      ],
+      color: '#9333ea',
+      width: 4,
+    }
+    expect(isFlowchart({ ...base, drawings: [stroke] })).toBe(true)
+    expect(isFlowchart({ ...base, drawings: [stroke, { ...stroke, anchorNodeId: 'n1' }] })).toBe(true)
+    expect(isFlowchart({ ...base, drawings: 'nope' })).toBe(false)
+    expect(isFlowchart({ ...base, drawings: [{ ...stroke, points: [{ x: 0, y: 0 }] }] })).toBe(false)
+    expect(isFlowchart({ ...base, drawings: [{ ...stroke, width: -1 }] })).toBe(false)
+    expect(
+      isFlowchart({
+        ...base,
+        drawings: [{ ...stroke, points: [{ x: 0, y: Number.NaN }, { x: 1, y: 1 }] }],
+      }),
+    ).toBe(false)
+    expect(isFlowchart({ ...base, drawings: [{ ...stroke, anchorNodeId: 42 }] })).toBe(false)
+  })
 })
