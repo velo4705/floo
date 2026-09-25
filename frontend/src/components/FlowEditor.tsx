@@ -60,17 +60,7 @@ import { Palette } from './Palette'
 import { PromptPanel } from './PromptPanel'
 import './FlowEditor.css'
 
-const nodeTypes = {
-  start: FlooNode,
-  process: FlooNode,
-  decision: FlooNode,
-  input: FlooNode,
-  output: FlooNode,
-  loop: FlooNode,
-  end: FlooNode,
-  text: FlooNode,
-  media: FlooNode,
-}
+const nodeTypes = Object.fromEntries(NODE_KINDS.map((kind) => [kind, FlooNode] as const))
 
 const edgeTypes = {
   default: FlooEdge,

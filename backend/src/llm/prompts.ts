@@ -14,7 +14,7 @@ The JSON must match this exact shape:
 
 {
   "nodes": [
-    { "id": "string", "type": "start|process|decision|input|output|loop|end|text|media", "label": "string", "position": { "x": 0, "y": 0 } }
+    { "id": "string", "type": "start|process|decision|input|output|loop|end|database|document|subprocess|manual|delay|text|media", "label": "string", "position": { "x": 0, "y": 0 } }
   ],
   "edges": [
     { "id": "string", "source": "string", "target": "string", "label": "string" }
@@ -43,6 +43,11 @@ The JSON must match this exact shape:
 | input      | Receiving data from outside the system                |
 | output     | Producing data or sending data out                    |
 | loop       | A repeated action or iteration — MUST have exactly two outgoing edges labeled "True" and "False" |
+| database   | Data is stored or looked up (persistence) |
+| document   | A document, report, or artifact is produced |
+| subprocess | A step that is its own separate flow, referenced not expanded |
+| manual     | A human action outside the system (approval, manual check) |
+| delay      | The flow pauses or waits before continuing |
 | text       | Free-floating annotation / note — no edges; do not use unless the user asks for a note |
 | media      | Free-floating image card — no edges; do not use unless the user asks for an image |
 
@@ -73,7 +78,7 @@ Example 3 — Looping:
 
 Example 4 — Architecture / system design:
 "System architecture for a real-time chat app"
-→ nodes: start → input("Client (web/mobile)") → process("API Gateway") → decision("Auth valid?") → process("WebSocket server") / process("Auth service") → process("Message router") → process("Message store") → process("Push notification service") → output("Deliver message") → end
+→ nodes: start → input("Client (web/mobile)") → process("API Gateway") → decision("Auth valid?") → process("WebSocket server") / process("Auth service") → process("Message router") → database("Message store") → process("Push notification service") → output("Deliver message") → end
 → include client, gateway, auth, realtime path, storage, and notifications as separate nodes — never one generic "Chat system" process.
 
 Example 5 — Vague prompt → typical full example:
@@ -90,7 +95,7 @@ export const REPAIR_PROMPT = `You are a flowchart repair engine. You will receiv
 Return the complete corrected flowchart JSON. Follow these rules:
 
 1. Return ONLY valid JSON — no markdown fences, no reasoning, no explanation, no trailing text. Your entire reply must be a single JSON object that parses with JSON.parse.
-2. The shape is: { "nodes": [{ "id": "string", "type": "start|process|decision|input|output|loop|end|text|media", "label": "string", "position": { "x": 0, "y": 0 } }], "edges": [{ "id": "string", "source": "string", "target": "string", "label": "string" }] }
+2. The shape is: { "nodes": [{ "id": "string", "type": "start|process|decision|input|output|loop|end|database|document|subprocess|manual|delay|text|media", "label": "string", "position": { "x": 0, "y": 0 } }], "edges": [{ "id": "string", "source": "string", "target": "string", "label": "string" }] }
 3. Set ALL positions to { "x": 0, "y": 0 }. Keep every node and edge you can; never invent steps that were not in the original.
 4. Fix every issue listed. In particular:
    - Every flowchart MUST contain exactly one "start" node and exactly one "end" node.
@@ -108,7 +113,7 @@ export const EDIT_PROMPT = `You are editing an existing flowchart. The user want
 
 Return the complete updated flowchart as a single JSON object — no markdown fences, no reasoning, no explanation. It must parse with JSON.parse.
 
-The shape is: { "nodes": [{ "id": "string", "type": "start|process|decision|input|output|loop|end|text|media", "label": "string", "position": { "x": 0, "y": 0 } }], "edges": [{ "id": "string", "source": "string", "target": "string", "label": "string" }] }
+The shape is: { "nodes": [{ "id": "string", "type": "start|process|decision|input|output|loop|end|database|document|subprocess|manual|delay|text|media", "label": "string", "position": { "x": 0, "y": 0 } }], "edges": [{ "id": "string", "source": "string", "target": "string", "label": "string" }] }
 
 Rules:
 1. Preserve EXACTLY the id of every node and edge you keep. Do not rename or renumber ids just to change a label.

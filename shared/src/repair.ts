@@ -14,6 +14,11 @@ const DEFAULT_LABEL: Record<NodeKind, string> = {
   input: 'Input',
   output: 'Output',
   loop: 'Loop',
+  database: 'Database',
+  document: 'Document',
+  subprocess: 'Subprocess',
+  manual: 'Manual',
+  delay: 'Delay',
   text: 'Text',
   media: 'Media',
 }

@@ -25,6 +25,11 @@ export const NODE_SIZE: Record<NodeKind, { width: number; height: number }> = {
   input: { width: 190, height: 50 },
   output: { width: 190, height: 50 },
   loop: { width: 190, height: 62 },
+  database: { width: 190, height: 62 },
+  document: { width: 190, height: 62 },
+  subprocess: { width: 190, height: 62 },
+  manual: { width: 190, height: 62 },
+  delay: { width: 190, height: 62 },
   text: { width: 220, height: 80 },
   media: { width: 240, height: 180 },
 }

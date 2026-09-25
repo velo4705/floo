@@ -86,4 +86,33 @@ describe('repairFlowchart', () => {
     expect(result.changed).toBe(true)
     expect(result.flowchart.nodes.every((n) => n.position.x === 0 && n.position.y === 0)).toBe(true)
   })
+
+  it('fills blank labels on the extended shape kinds with their kind names', () => {
+    const fc = makeFlowchart({
+      nodes: [
+        { id: 'n1', type: 'start', label: 'Start', position: { x: 0, y: 0 } },
+        { id: 'n2', type: 'database', label: '', position: { x: 0, y: 0 } },
+        { id: 'n3', type: 'document', label: '', position: { x: 0, y: 0 } },
+        { id: 'n4', type: 'subprocess', label: '', position: { x: 0, y: 0 } },
+        { id: 'n5', type: 'manual', label: '', position: { x: 0, y: 0 } },
+        { id: 'n6', type: 'delay', label: '', position: { x: 0, y: 0 } },
+        { id: 'n7', type: 'end', label: 'End', position: { x: 0, y: 0 } },
+      ],
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2' },
+        { id: 'e2', source: 'n2', target: 'n3' },
+        { id: 'e3', source: 'n3', target: 'n4' },
+        { id: 'e4', source: 'n4', target: 'n5' },
+        { id: 'e5', source: 'n5', target: 'n6' },
+        { id: 'e6', source: 'n6', target: 'n7' },
+      ],
+    })
+    const result = repairFlowchart(fc)
+    const byId = new Map(result.flowchart.nodes.map((n) => [n.id, n.label]))
+    expect(byId.get('n2')).toBe('Database')
+    expect(byId.get('n3')).toBe('Document')
+    expect(byId.get('n4')).toBe('Subprocess')
+    expect(byId.get('n5')).toBe('Manual')
+    expect(byId.get('n6')).toBe('Delay')
+  })
 })

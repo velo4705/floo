@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Flowchart } from '@floo/shared'
+import { NODE_KINDS, type Flowchart } from '@floo/shared'
 
 import {
   PORTS,
@@ -266,6 +266,16 @@ describe('adapters', () => {
     expect(
       isFlowchart({ nodes: [{ id: 'x', type: 'banana', label: '', position: { x: 0, y: 0 } }], edges: [] }),
     ).toBe(false)
+  })
+
+  it('accepts every declared node kind', () => {
+    const nodes = NODE_KINDS.map((kind, i) => ({
+      id: `k${i}`,
+      type: kind,
+      label: kind,
+      position: { x: 0, y: 0 },
+    }))
+    expect(isFlowchart({ nodes, edges: [] })).toBe(true)
   })
 
   it('validates the optional drawings array', () => {

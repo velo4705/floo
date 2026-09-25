@@ -29,6 +29,27 @@ describe('validateFlowchart', () => {
     expect(result.issues).toHaveLength(0)
   })
 
+  it('treats the extended shape kinds as ordinary connected nodes', () => {
+    const fc = makeFlowchart({
+      nodes: [
+        { id: 'n1', type: 'start', label: 'Start', position: { x: 0, y: 0 } },
+        { id: 'n2', type: 'database', label: 'Store', position: { x: 0, y: 0 } },
+        { id: 'n3', type: 'manual', label: 'Approve', position: { x: 0, y: 0 } },
+        { id: 'n4', type: 'delay', label: 'Wait', position: { x: 0, y: 0 } },
+        { id: 'n5', type: 'end', label: 'End', position: { x: 0, y: 0 } },
+      ],
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2' },
+        { id: 'e2', source: 'n2', target: 'n3' },
+        { id: 'e3', source: 'n3', target: 'n4' },
+        { id: 'e4', source: 'n4', target: 'n5' },
+      ],
+    })
+    const result = validateFlowchart(fc)
+    expect(result.isClean).toBe(true)
+    expect(result.issues).toHaveLength(0)
+  })
+
   it('flags duplicate node and edge ids', () => {
     const fc = makeFlowchart({
       nodes: [

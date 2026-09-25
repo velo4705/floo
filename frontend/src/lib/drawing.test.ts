@@ -30,6 +30,7 @@ describe('drawing geometry', () => {
   it('nodeBox uses the kind size at the node position', () => {
     expect(nodeBox('process', { x: 10, y: 20 })).toEqual({ x: 10, y: 20, width: 190, height: 62 })
     expect(nodeBox('start', { x: 0, y: 0 })).toEqual({ x: 0, y: 0, width: 150, height: 50 })
+    expect(nodeBox('database', { x: 0, y: 0 })).toEqual({ x: 0, y: 0, width: 190, height: 62 })
   })
 
   it('absolutePoints keeps free strokes and shifts anchored strokes with their node', () => {

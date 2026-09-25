@@ -16,6 +16,16 @@ export function defaultLabel(kind: string): string {
       return 'Output'
     case 'loop':
       return 'Repeat'
+    case 'database':
+      return 'Database'
+    case 'document':
+      return 'Document'
+    case 'subprocess':
+      return 'Subprocess'
+    case 'manual':
+      return 'Manual'
+    case 'delay':
+      return 'Delay'
     case 'text':
       return 'Text'
     case 'media':

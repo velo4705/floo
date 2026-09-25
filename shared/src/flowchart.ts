@@ -6,6 +6,11 @@ export type NodeKind =
   | 'output'
   | 'loop'
   | 'end'
+  | 'database'
+  | 'document'
+  | 'subprocess'
+  | 'manual'
+  | 'delay'
   | 'text'
   | 'media'
 
@@ -17,6 +22,11 @@ export const NODE_KINDS: readonly NodeKind[] = [
   'output',
   'loop',
   'end',
+  'database',
+  'document',
+  'subprocess',
+  'manual',
+  'delay',
   'text',
   'media',
 ]
