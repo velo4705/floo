@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { EXPORT_MAX_DIMENSION, EXPORT_PADDING, exportFilename, planExport } from './exportImage'
+import {
+  EXPORT_MAX_DIMENSION,
+  EXPORT_PADDING,
+  exportFilename,
+  inlineEdgeStrokeStyles,
+  planExport,
+} from './exportImage'
 
 describe('planExport', () => {
   it('pads content bounds on every side', () => {
@@ -50,5 +56,90 @@ describe('exportFilename', () => {
   it('uses the matching extension', () => {
     expect(exportFilename('png')).toBe('floo-flowchart.png')
     expect(exportFilename('jpeg')).toBe('floo-flowchart.jpg')
+  })
+})
+
+describe('inlineEdgeStrokeStyles', () => {
+  function createPath(initialStyle: string | null) {
+    const applied = new Map<string, string>()
+    let style = initialStyle
+    return {
+      applied,
+      getStyleAttr: () => style,
+      getAttribute(name: string) {
+        return name === 'style' ? style : null
+      },
+      setAttribute(name: string, value: string) {
+        if (name === 'style') style = value
+      },
+      removeAttribute(name: string) {
+        if (name === 'style') style = null
+      },
+      style: {
+        setProperty(property: string, value: string) {
+          applied.set(property, value)
+          style = style === null ? `${property}: ${value}` : `${style}; ${property}: ${value}`
+        },
+      },
+    }
+  }
+
+  function computedFrom(values: Record<string, string>) {
+    return { getPropertyValue: (name: string) => values[name] ?? '' }
+  }
+
+  it('writes computed stroke properties as inline styles', () => {
+    const path = createPath('fill: none')
+    const computed = computedFrom({
+      stroke: 'rgb(177, 177, 183)',
+      'stroke-width': '1px',
+      'stroke-dasharray': 'none',
+      'stroke-dashoffset': '0px',
+      'stroke-linecap': 'butt',
+      'stroke-linejoin': 'miter',
+      'stroke-opacity': '1',
+    })
+
+    inlineEdgeStrokeStyles([path], () => computed)
+
+    expect(path.applied.get('stroke')).toBe('rgb(177, 177, 183)')
+    expect(path.applied.get('stroke-width')).toBe('1px')
+    expect(path.applied.get('stroke-opacity')).toBe('1')
+    expect(path.getStyleAttr()).toContain('fill: none')
+  })
+
+  it('leaves properties with empty computed values untouched', () => {
+    const path = createPath('fill: none')
+
+    inlineEdgeStrokeStyles([path], () => computedFrom({}))
+
+    expect(path.applied.size).toBe(0)
+    expect(path.getStyleAttr()).toBe('fill: none')
+  })
+
+  it('restores the original style attribute', () => {
+    const path = createPath('fill: none')
+
+    const restore = inlineEdgeStrokeStyles([path], () => computedFrom({ stroke: 'red' }))
+    expect(path.getStyleAttr()).toContain('stroke')
+    expect(path.getStyleAttr()).not.toBe('fill: none')
+
+    restore()
+    expect(path.getStyleAttr()).toBe('fill: none')
+  })
+
+  it('removes the style attribute when the path had none before', () => {
+    const path = createPath(null)
+
+    const restore = inlineEdgeStrokeStyles([path], () => computedFrom({ stroke: 'red' }))
+    expect(path.getStyleAttr()).not.toBe(null)
+
+    restore()
+    expect(path.getStyleAttr()).toBe(null)
+  })
+
+  it('is a no-op when there are no edge paths', () => {
+    const restore = inlineEdgeStrokeStyles([], () => computedFrom({ stroke: 'red' }))
+    restore()
   })
 })

@@ -1,53 +1,55 @@
 /* Theme tokens — light is default; dark applies via [data-theme="dark"]. */
 :root {
-  --bg: #fff;
-  --bg-subtle: #fafafa;
+  --bg: #fff0f5;
+  --bg-subtle: #fceaf1;
   --bg-elevated: #fff;
   --text: #212529;
   --text-strong: #111827;
   --text-muted: #6b7280;
   --text-soft: #9ca3af;
-  --border: #e0e0e0;
-  --border-strong: #d0d0d0;
-  --border-soft: #e5e7eb;
-  --accent: #1976d2;
-  --accent-hover: #1565c0;
-  --accent-soft: rgb(25 118 210 / 0.15);
-  --focus-ring: #1976d2;
-  --canvas-mask: rgb(255 255 255 / 100%);
-  --panel-fade: linear-gradient(0deg, #fff 80%, transparent);
-  --tab-bar: #1f2937;
-  --tab-active-bg: #374151;
+  --border: #f2e2ea;
+  --border-strong: #e6d2dd;
+  --border-soft: #f5e9ef;
+  --border-sidebar: #e4d4fb;
+  --accent: #9333ea;
+  --accent-hover: #7e22ce;
+  --accent-soft: rgb(147 51 234 / 0.15);
+  --focus-ring: #9333ea;
+  --canvas-mask: rgb(255 240 245 / 100%);
+  --panel-fade: linear-gradient(0deg, #fff0f5 80%, transparent);
+  --tab-bar: #231a3e;
+  --tab-active-bg: #3a2c66;
   --tab-idle: #9ca3af;
-  --timer-bg: #111827;
+  --timer-bg: #1a1136;
   --timer-fg: #fff;
-  --rf-bg: #fff;
+  --rf-bg: #fff0f5;
   color-scheme: light;
 }
 
 [data-theme='dark'] {
-  --bg: #0f172a;
-  --bg-subtle: #1e293b;
-  --bg-elevated: #1e293b;
+  --bg: #140e26;
+  --bg-subtle: #1f1740;
+  --bg-elevated: #1f1740;
   --text: #e5e7eb;
   --text-strong: #f3f4f6;
   --text-muted: #9ca3af;
   --text-soft: #6b7280;
-  --border: #334155;
-  --border-strong: #475569;
-  --border-soft: #334155;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --accent-soft: rgb(59 130 246 / 0.2);
-  --focus-ring: #3b82f6;
-  --canvas-mask: rgb(15 23 42 / 100%);
-  --panel-fade: linear-gradient(0deg, #0f172a 80%, transparent);
-  --tab-bar: #0b1220;
-  --tab-active-bg: #334155;
+  --border: #3a2d5e;
+  --border-strong: #4d3c7a;
+  --border-soft: #3a2d5e;
+  --border-sidebar: rgb(168 85 247 / 0.35);
+  --accent: #a855f7;
+  --accent-hover: #9333ea;
+  --accent-soft: rgb(168 85 247 / 0.2);
+  --focus-ring: #a855f7;
+  --canvas-mask: rgb(20 14 38 / 100%);
+  --panel-fade: linear-gradient(0deg, #140e26 80%, transparent);
+  --tab-bar: #120b26;
+  --tab-active-bg: #3a2b64;
   --tab-idle: #94a3b8;
-  --timer-bg: #f8fafc;
-  --timer-fg: #0f172a;
-  --rf-bg: #0f172a;
+  --timer-bg: #f5f0ff;
+  --timer-fg: #140e26;
+  --rf-bg: #140e26;
   color-scheme: dark;
 }
 

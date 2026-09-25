@@ -19,8 +19,8 @@ export interface ExportPlan {
 export const EXPORT_PADDING = 48
 export const EXPORT_MAX_DIMENSION = 4096
 export const EXPORT_BACKGROUND = {
-  light: '#ffffff',
-  dark: '#0f172a',
+  light: '#fff0f5',
+  dark: '#140e26',
 } as const
 
 export function planExport(
@@ -57,6 +57,53 @@ export function downloadDataUrl(dataUrl: string, filename: string): void {
   anchor.click()
 }
 
+export const EDGE_STROKE_STYLE_PROPERTIES = [
+  'stroke',
+  'stroke-width',
+  'stroke-dasharray',
+  'stroke-dashoffset',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'stroke-opacity',
+] as const
+
+export interface InlineStrokeTarget {
+  getAttribute(name: string): string | null
+  setAttribute(name: string, value: string): void
+  removeAttribute(name: string): void
+  style: { setProperty(property: string, value: string): void }
+}
+
+export function inlineEdgeStrokeStyles<T extends InlineStrokeTarget>(
+  paths: ArrayLike<T>,
+  getComputedStroke: (path: T) => { getPropertyValue(name: string): string },
+): () => void {
+  const previousStyles: Array<[T, string | null]> = []
+
+  for (let i = 0; i < paths.length; i += 1) {
+    const path = paths[i]!
+    const computed = getComputedStroke(path)
+    previousStyles.push([path, path.getAttribute('style')])
+
+    for (const property of EDGE_STROKE_STYLE_PROPERTIES) {
+      const value = computed.getPropertyValue(property).trim()
+      if (value) {
+        path.style.setProperty(property, value)
+      }
+    }
+  }
+
+  return () => {
+    for (const [path, previousStyle] of previousStyles) {
+      if (previousStyle === null) {
+        path.removeAttribute('style')
+      } else {
+        path.setAttribute('style', previousStyle)
+      }
+    }
+  }
+}
+
 export async function captureFlowchart(options: {
   viewportEl: HTMLElement
   plan: ExportPlan
@@ -86,8 +133,17 @@ export async function captureFlowchart(options: {
     },
   }
 
-  if (options.format === 'png') {
-    return toPng(options.viewportEl, base)
+  const restoreEdgeStroke = inlineEdgeStrokeStyles(
+    options.viewportEl.querySelectorAll<SVGPathElement>('path.react-flow__edge-path'),
+    (path) => window.getComputedStyle(path),
+  )
+
+  try {
+    if (options.format === 'png') {
+      return await toPng(options.viewportEl, base)
+    }
+    return await toJpeg(options.viewportEl, { ...base, quality: 0.92 })
+  } finally {
+    restoreEdgeStroke()
   }
-  return toJpeg(options.viewportEl, { ...base, quality: 0.92 })
 }

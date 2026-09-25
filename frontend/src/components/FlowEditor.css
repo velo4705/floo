@@ -12,7 +12,7 @@
   flex-direction: column;
   width: 200px;
   flex-shrink: 0;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border-sidebar);
   background: var(--bg-subtle);
 }
 
@@ -102,7 +102,12 @@
 .palette__swatch--text {
   border: 2px dashed #616161;
   border-radius: 3px;
-  background: #fffde7;
+  background: rgb(100 116 139 / 0.25);
+}
+
+[data-theme='dark'] .palette__swatch--text {
+  border-color: #94a3b8;
+  background: rgb(148 163 184 / 0.3);
 }
 
 .palette__swatch--media {
@@ -114,7 +119,7 @@
 /* Sidebar footer */
 .floo-sidebar__footer {
   padding: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-sidebar);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -177,10 +182,12 @@
   display: none;
 }
 
-/* Edge label inspector — shows when a single connection is selected */
 .floo-sidebar__inspector {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
   padding: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-sidebar);
   background: var(--bg-elevated);
 }
 
@@ -332,16 +339,27 @@
 .floo-node--text .floo-shape {
   border: 2px dashed #616161;
   border-radius: 4px;
-  background: #fffde7;
+  background: rgb(100 116 139 / 0.12);
+}
+
+[data-theme='dark'] .floo-node--text .floo-shape {
+  background: rgb(148 163 184 / 0.16);
+  border-color: #94a3b8;
+}
+
+[data-theme='dark'] .floo-node--text .floo-label {
+  color: var(--text);
 }
 
 .floo-node--text .floo-label {
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
   padding: 10px 12px;
+  font-family: 'Indie Flower', cursive;
+  font-size: 15px;
   font-weight: 400;
   line-height: 1.4;
-  text-align: left;
+  text-align: center;
 }
 
 .floo-node--media .floo-shape {
@@ -636,11 +654,11 @@
 .prompt-panel__changes {
   margin: 8px 0 0;
   font-size: 12px;
-  color: #2563eb;
+  color: #9333ea;
 }
 
 [data-theme='dark'] .prompt-panel__changes {
-  color: #60a5fa;
+  color: #c084fc;
 }
 
 .prompt-panel__warn {
