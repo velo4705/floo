@@ -13,6 +13,7 @@
     "dev:backend": "npm run dev --workspace @floo/backend",
     "dev:frontend": "npm run dev --workspace @floo/frontend",
     "build": "npm run build --workspaces --if-present",
+    "build:api": "esbuild api-src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=api/[...route].mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
