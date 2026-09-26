@@ -38,7 +38,8 @@ type Gesture =
   | { kind: 'move'; id: string; last: DrawingPoint; began: boolean }
   | null
 
-const UI_EXCLUSIONS = '.prompt-panel, .react-flow__controls, .react-flow__minimap, .react-flow__attribution'
+const UI_EXCLUSIONS =
+  '.prompt-panel, .floo-dock, .floo-inspector-dock, .floo-node-menu, .floo-node__editor, .react-flow__controls, .react-flow__minimap, .react-flow__attribution'
 
 export function DrawLayer(props: DrawLayerProps) {
   const { tool } = props

@@ -19,8 +19,8 @@ export interface ExportPlan {
 export const EXPORT_PADDING = 48
 export const EXPORT_MAX_DIMENSION = 4096
 export const EXPORT_BACKGROUND = {
-  light: '#fff',
-  dark: '#140e26',
+  light: '#fbf9f4',
+  dark: '#313244',
 } as const
 
 export function planExport(

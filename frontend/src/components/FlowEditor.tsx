@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DragEvent } from 'react'
+import type { DragEvent, MouseEvent as ReactMouseEvent } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -42,8 +42,10 @@ import {
 } from '../lib/history'
 import { createId, defaultLabel } from '../lib/ids'
 import {
-  PEN_COLORS,
-  PEN_WIDTHS,
+  DEFAULT_PEN_COLOR,
+  DEFAULT_PEN_WIDTH,
+  PEN_SIZE_MAX,
+  PEN_SIZE_MIN,
   anchorForStroke,
   drawingsBounds,
   unionRect,
@@ -53,10 +55,10 @@ import { sampleFlowchart } from '../lib/sample'
 import { applyTheme, getInitialTheme, type Theme } from '../lib/theme'
 import FlooNode from '../nodes/FlooNode'
 import { DrawLayer } from './DrawLayer'
+import { ColorPicker } from './ColorPicker'
 import { EdgeInspector } from './EdgeInspector'
 import { FlooEdge } from './FlooEdge'
-import { NodeInspector } from './NodeInspector'
-import { Palette } from './Palette'
+import { ShapesMenu } from './ShapesMenu'
 import { PromptPanel } from './PromptPanel'
 import './FlowEditor.css'
 
@@ -68,27 +70,234 @@ const edgeTypes = {
 
 const DND_MIME = 'application/floo'
 
+type DockMenu = 'shapes' | 'more' | null
+type NodeMenu = { x: number; y: number; nodeId: string } | null
+type DockIconName =
+  | 'select'
+  | 'draw'
+  | 'eraser'
+  | 'shapes'
+  | 'text'
+  | 'media'
+  | 'more'
+
+function DockIcon({ name }: { name: DockIconName }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {name === 'select' && (
+        <path
+          d="M5 3.5 5 19l4.2-4.3 2.9 6.1 3-1.4-2.9-6.1H18z"
+          fill="currentColor"
+          stroke="none"
+        />
+      )}
+      {name === 'draw' && (
+        <>
+          <path d="M4 20h4L20 8l-4-4L4 16v4z" />
+          <path d="M14.5 5.5 18.5 9.5" />
+        </>
+      )}
+      {name === 'eraser' && (
+        <>
+          <path d="M8.5 20.5H20.5" />
+          <path d="M16.2 4.3 20 8.1 10.4 17.7 6.6 13.9z" />
+          <path d="M10.4 17.7 6.6 13.9" />
+        </>
+      )}
+      {name === 'shapes' && (
+        <>
+          <circle cx="8" cy="8" r="4.2" />
+          <rect x="12.2" y="12.2" width="8.4" height="8.4" rx="1.2" />
+        </>
+      )}
+      {name === 'text' && (
+        <path d="M5 6.5V5h14v1.5M12 5v14M9 19h6" />
+      )}
+      {name === 'media' && (
+        <>
+          <rect x="3.5" y="5" width="17" height="14" rx="2" />
+          <circle cx="8.5" cy="10" r="1.3" />
+          <path d="M4 17l4.5-4.5 3 3 3-3.5L20 17" />
+        </>
+      )}
+      {name === 'more' && (
+        <>
+          <circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" />
+          <circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none" />
+        </>
+      )}
+    </svg>
+  )
+}
+
 function isNodeKind(value: unknown): value is NodeKind {
   return (NODE_KINDS as readonly string[]).includes(value as string)
+}
+
+type ActionIconName =
+  | 'undo'
+  | 'redo'
+  | 'layout'
+  | 'png'
+  | 'jpg'
+  | 'braces'
+  | 'upload'
+  | 'contrast'
+  | 'trash'
+
+function ActionIcon({ name }: { name: ActionIconName }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="15"
+      height="15"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {name === 'undo' && (
+        <>
+          <path d="M4 9h10a5 5 0 0 1 0 10h-4" />
+          <path d="M7.5 5.5 4 9l3.5 3.5" />
+        </>
+      )}
+      {name === 'redo' && (
+        <>
+          <path d="M20 9H10a5 5 0 0 0 0 10h4" />
+          <path d="M16.5 5.5 20 9l-3.5 3.5" />
+        </>
+      )}
+      {name === 'layout' && (
+        <>
+          <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+          <path d="M3.5 9.5h17M9.5 9.5v10" />
+        </>
+      )}
+      {name === 'png' && (
+        <>
+          <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+          <circle cx="8.5" cy="9.5" r="1.4" />
+          <path d="M4 17l4.5-4.5 3 3 3-3.5L20 17" />
+        </>
+      )}
+      {name === 'jpg' && (
+        <>
+          <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+          <path d="M4 17l4.5-4.5 3 3 3-3.5L20 17" />
+          <path d="M7 12.5h3" />
+        </>
+      )}
+      {name === 'braces' && (
+        <>
+          <path d="M9 4.5c-2 0-2.5 1-2.5 2.5v2c0 1.5-1 2-2 2 1 0 2 .5 2 2v2c0 1.5.5 2.5 2.5 2.5" />
+          <path d="M15 4.5c2 0 2.5 1 2.5 2.5v2c0 1.5 1 2 2 2-1 0-2 .5-2 2v2c0 1.5-.5 2.5-2.5 2.5" />
+        </>
+      )}
+      {name === 'upload' && (
+        <>
+          <path d="M12 16V4.5" />
+          <path d="M7.5 9 12 4.5 16.5 9" />
+          <path d="M4.5 15.5v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3" />
+        </>
+      )}
+      {name === 'contrast' && (
+        <>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor" stroke="none" />
+        </>
+      )}
+      {name === 'trash' && (
+        <>
+          <path d="M4.5 6.5h15" />
+          <path d="M9 6.5V4.8A1.3 1.3 0 0 1 10.3 3.5h3.4A1.3 1.3 0 0 1 15 4.8v1.7" />
+          <path d="M6.5 6.5 7.4 19a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4l.9-12.5" />
+          <path d="M10.5 10v6.5M13.5 10v6.5" />
+        </>
+      )}
+    </svg>
+  )
 }
 
 function FlowEditorInner() {
   const [nodes, setNodes, onNodesChangeRaw] = useNodesState(toRfNodes(sampleFlowchart))
   const [edges, setEdges, onEdgesChangeRaw] = useEdgesState(toRfEdges(sampleFlowchart))
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null)
   const [drawings, setDrawings] = useState<Drawing[]>([])
   const [tool, setTool] = useState<DrawTool>('select')
-  const [penColor, setPenColor] = useState<string>(PEN_COLORS[0])
-  const [penWidth, setPenWidth] = useState<number>(PEN_WIDTHS[1])
+  const [penColor, setPenColor] = useState<string>(DEFAULT_PEN_COLOR)
+  const [penWidth, setPenWidth] = useState<number>(DEFAULT_PEN_WIDTH)
   const [labelFocusToken, setLabelFocusToken] = useState(0)
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+  const [nodeMenu, setNodeMenu] = useState<NodeMenu>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const penMenuRef = useRef<HTMLDivElement>(null)
+  const nodeMenuRef = useRef<HTMLDivElement>(null)
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
   const [history, setHistory] = useState<HistoryStacks>(createHistory)
   const { screenToFlowPosition, getNodesBounds } = useReactFlow()
   const canvasRef = useRef<HTMLDivElement>(null)
   const [layingOut, setLayingOut] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [dockMenu, setDockMenu] = useState<DockMenu>(null)
+  const dockRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!dockMenu) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (!dockRef.current?.contains(e.target as Node)) setDockMenu(null)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDockMenu(null)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [dockMenu])
+
+  useEffect(() => {
+    if (!pickerOpen) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (!penMenuRef.current?.contains(e.target as Node)) setPickerOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [pickerOpen])
+
+  useEffect(() => {
+    if (!nodeMenu) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (!nodeMenuRef.current?.contains(e.target as Node)) setNodeMenu(null)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNodeMenu(null)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [nodeMenu])
 
   // Latest graph for history pushes (synced after each committed render).
   const graphRef = useRef<GraphSnapshot>({ nodes, edges, drawings })
@@ -110,7 +319,6 @@ function FlowEditorInner() {
   }, [])
 
   const selectedEdge = selectedEdgeId ? (edges.find((e) => e.id === selectedEdgeId) ?? null) : null
-  const selectedNode = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId) ?? null) : null
 
   const canUndo = historyCanUndo(history)
   const canRedo = historyCanRedo(history)
@@ -247,24 +455,9 @@ function FlowEditorInner() {
   // charts created before a routing rule changed — not just at import time.
   const renderEdges = useMemo(() => refreshEdgePorts(nodes, edges), [nodes, edges])
 
-  // Decorate nodes with left-port usage so decisions can omit unused left handles.
-  const renderNodes = useMemo(() => {
-    const usage = leftPortUsage(renderEdges)
-    return nodes.map((node) => {
-      const flags = usage.get(node.id)
-      const leftSource = Boolean(flags?.leftSource)
-      const leftTarget = Boolean(flags?.leftTarget)
-      if (node.data.leftSource === leftSource && node.data.leftTarget === leftTarget) return node
-      return { ...node, data: { ...node.data, leftSource, leftTarget } }
-    })
-  }, [nodes, renderEdges])
-
   const onSelectionChange = useCallback((selection: OnSelectionChangeParams) => {
     setSelectedEdgeId(
       selection.nodes.length === 0 && selection.edges.length === 1 ? selection.edges[0]!.id : null,
-    )
-    setSelectedNodeId(
-      selection.edges.length === 0 && selection.nodes.length === 1 ? selection.nodes[0]!.id : null,
     )
     if (selection.nodes.length > 0 || selection.edges.length > 0) {
       setSelectedDrawingId(null)
@@ -275,6 +468,73 @@ function FlowEditorInner() {
     setLabelFocusToken((t) => t + 1)
   }, [])
 
+  // Nodes edit their own label in place, so double-click only opens the input.
+  const onNodeEdit = useCallback((_e: ReactMouseEvent, node: FlooNodeType) => {
+    setEditingNodeId(node.id)
+  }, [])
+
+  const commitNodeLabel = useCallback(
+    (id: string, label: string) => {
+      setEditingNodeId(null)
+      pushHistory()
+      setNodes((nds) => setNodeLabel(nds, id, label))
+    },
+    [pushHistory, setNodes],
+  )
+
+  const cancelNodeEdit = useCallback(() => setEditingNodeId(null), [])
+
+  // Decorate nodes with left-port usage so decisions can omit unused left
+  // handles, and hand the one being renamed the callbacks its inline editor
+  // needs. Unchanged nodes are returned by reference to keep renders cheap.
+  const renderNodes = useMemo(() => {
+    const usage = leftPortUsage(renderEdges)
+    return nodes.map((node) => {
+      const flags = usage.get(node.id)
+      const leftSource = Boolean(flags?.leftSource)
+      const leftTarget = Boolean(flags?.leftTarget)
+      const isEditing = node.id === editingNodeId
+      const unchanged =
+        node.data.leftSource === leftSource &&
+        node.data.leftTarget === leftTarget &&
+        node.data.editing === (isEditing || undefined)
+      if (unchanged) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          leftSource,
+          leftTarget,
+          editing: isEditing || undefined,
+          ...(isEditing ? { onCommitLabel: commitNodeLabel, onCancelEdit: cancelNodeEdit } : {}),
+        },
+      }
+    })
+  }, [nodes, renderEdges, editingNodeId, commitNodeLabel, cancelNodeEdit])
+
+  const onNodeContextMenu = useCallback((e: ReactMouseEvent, node: FlooNodeType) => {
+    if (node.data.kind !== 'media') return
+    e.preventDefault()
+    setNodeMenu({ x: e.clientX, y: e.clientY, nodeId: node.id })
+  }, [])
+
+  const uploadMediaImage = useCallback(
+    (file: File | undefined) => {
+      const nodeId = nodeMenu?.nodeId
+      setNodeMenu(null)
+      if (!file || !nodeId) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        const url = String(reader.result ?? '')
+        if (!url.startsWith('data:image/')) return
+        pushHistory()
+        setNodes((nds) => setNodeUrl(nds, nodeId, url))
+      }
+      reader.readAsDataURL(file)
+    },
+    [nodeMenu, pushHistory, setNodes],
+  )
+
   const onEdgeLabelChange = useCallback(
     (label: string) => {
       if (!selectedEdgeId) return
@@ -282,24 +542,6 @@ function FlowEditorInner() {
       setEdges((eds) => setEdgeLabel(eds, selectedEdgeId, label))
     },
     [selectedEdgeId, beginLabelSession, setEdges],
-  )
-
-  const onNodeLabelChange = useCallback(
-    (label: string) => {
-      if (!selectedNodeId) return
-      beginLabelSession()
-      setNodes((nds) => setNodeLabel(nds, selectedNodeId, label))
-    },
-    [selectedNodeId, beginLabelSession, setNodes],
-  )
-
-  const onNodeUrlChange = useCallback(
-    (url: string) => {
-      if (!selectedNodeId) return
-      beginLabelSession()
-      setNodes((nds) => setNodeUrl(nds, selectedNodeId, url))
-    },
-    [selectedNodeId, beginLabelSession, setNodes],
   )
 
   const onAutoLayout = useCallback(async () => {
@@ -323,7 +565,6 @@ function FlowEditorInner() {
         setEdges((eds) =>
           eds.some((e) => e.selected) ? eds.map((e) => (e.selected ? { ...e, selected: false } : e)) : eds,
         )
-        setSelectedNodeId(null)
         setSelectedEdgeId(null)
       }
     },
@@ -445,7 +686,6 @@ function FlowEditorInner() {
       try {
         setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n)))
         setEdges((eds) => eds.map((e) => (e.selected ? { ...e, selected: false } : e)))
-        setSelectedNodeId(null)
         setSelectedEdgeId(null)
         setSelectedDrawingId(null)
         await new Promise<void>((resolve) => {
@@ -485,147 +725,12 @@ function FlowEditorInner() {
     setNodes([])
     setEdges([])
     setDrawings([])
-    setSelectedNodeId(null)
     setSelectedEdgeId(null)
     setSelectedDrawingId(null)
   }, [isCanvasEmpty, pushHistory, setNodes, setEdges, setDrawings])
 
   return (
     <div className="floo-editor">
-      <div className="floo-sidebar">
-        <Palette onAdd={onPaletteAdd} />
-        <div className="floo-tools">
-          <div className="floo-sidebar__btn-row floo-tools__modes">
-            <button
-              type="button"
-              className={`floo-sidebar__btn${tool === 'select' ? ' is-active' : ''}`}
-              onClick={() => setTool('select')}
-            >
-              Select
-            </button>
-            <button
-              type="button"
-              className={`floo-sidebar__btn${tool === 'pen' ? ' is-active' : ''}`}
-              onClick={() => setTool('pen')}
-            >
-              Draw
-            </button>
-            <button
-              type="button"
-              className={`floo-sidebar__btn${tool === 'eraser' ? ' is-active' : ''}`}
-              onClick={() => setTool('eraser')}
-            >
-              Eraser
-            </button>
-          </div>
-          {tool === 'pen' && (
-            <>
-              <div className="floo-tools__colors">
-                {PEN_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={`floo-tools__color${penColor === c ? ' is-active' : ''}`}
-                    style={{ background: c }}
-                    onClick={() => setPenColor(c)}
-                    aria-label={`Pen color ${c}`}
-                  />
-                ))}
-              </div>
-              <div className="floo-sidebar__btn-row floo-tools__widths">
-                {PEN_WIDTHS.map((w, i) => (
-                  <button
-                    key={w}
-                    type="button"
-                    className={`floo-sidebar__btn${penWidth === w ? ' is-active' : ''}`}
-                    onClick={() => setPenWidth(w)}
-                  >
-                    {i === 0 ? 'Thin' : i === 1 ? 'Medium' : 'Thick'}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        {selectedNode && (
-          <NodeInspector
-            node={selectedNode}
-            onChange={onNodeLabelChange}
-            onUrlChange={onNodeUrlChange}
-            focusToken={labelFocusToken}
-          />
-        )}
-        {selectedEdge && (
-          <EdgeInspector
-            edge={selectedEdge}
-            nodes={nodes}
-            onChange={onEdgeLabelChange}
-            focusToken={labelFocusToken}
-          />
-        )}
-        <div className="floo-sidebar__footer">
-          <div className="floo-sidebar__btn-row">
-            <button type="button" className="floo-sidebar__btn" onClick={undo} disabled={!canUndo}>
-              Undo
-            </button>
-            <button type="button" className="floo-sidebar__btn" onClick={redo} disabled={!canRedo}>
-              Redo
-            </button>
-          </div>
-          <button
-            type="button"
-            className="floo-sidebar__btn floo-sidebar__btn--busy"
-            onClick={onAutoLayout}
-            disabled={layingOut}
-          >
-            {layingOut ? 'Laying out…' : 'Auto-layout'}
-          </button>
-          <div className="floo-sidebar__btn-row">
-            <button
-              type="button"
-              className="floo-sidebar__btn floo-sidebar__btn--busy"
-              onClick={() => void exportImage('png')}
-              disabled={isCanvasEmpty || exporting}
-            >
-              {exporting ? 'Exporting…' : 'Export PNG'}
-            </button>
-            <button
-              type="button"
-              className="floo-sidebar__btn floo-sidebar__btn--busy"
-              onClick={() => void exportImage('jpeg')}
-              disabled={isCanvasEmpty || exporting}
-            >
-              Export JPG
-            </button>
-          </div>
-          <button type="button" className="floo-sidebar__btn" onClick={exportJson}>
-            Export JSON
-          </button>
-          <label className="floo-sidebar__btn">
-            Import JSON
-            <input
-              type="file"
-              accept="application/json,.json"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) void importJson(file)
-                e.target.value = ''
-              }}
-            />
-          </label>
-          <button type="button" className="floo-sidebar__btn" onClick={toggleTheme}>
-            {theme === 'dark' ? 'Light theme' : 'Dark theme'}
-          </button>
-          <button
-            type="button"
-            className="floo-sidebar__btn floo-sidebar__btn--danger"
-            onClick={clearFlowchart}
-            disabled={isCanvasEmpty}
-          >
-            Clear
-          </button>
-        </div>
-      </div>
       <div
         className={`floo-canvas${tool === 'pen' ? ' floo-canvas--pen' : tool === 'eraser' ? ' floo-canvas--eraser' : ''}`}
         ref={canvasRef}
@@ -640,7 +745,8 @@ function FlowEditorInner() {
           onEdgesChange={onEdgesChange}
           onSelectionChange={onSelectionChange}
           onEdgeDoubleClick={onLabelEditShortcut}
-          onNodeDoubleClick={onLabelEditShortcut}
+          onNodeDoubleClick={onNodeEdit}
+          onNodeContextMenu={onNodeContextMenu}
           onConnect={onConnect}
           onDragOver={onDragOver}
           onDrop={onDrop}
@@ -649,7 +755,7 @@ function FlowEditorInner() {
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls />
-          <MiniMap pannable zoomable />
+          <MiniMap pannable zoomable position="top-right" />
         </ReactFlow>
         <DrawLayer
           containerRef={canvasRef}
@@ -665,6 +771,256 @@ function FlowEditorInner() {
           onErase={onEraseDrawings}
           onMoveStroke={onMoveDrawing}
         />
+        {selectedEdge && (
+          <div className="floo-inspector-dock">
+            <EdgeInspector
+              edge={selectedEdge}
+              nodes={nodes}
+              onChange={onEdgeLabelChange}
+              focusToken={labelFocusToken}
+            />
+          </div>
+        )}
+        {nodeMenu && (
+          <div
+            className="floo-node-menu"
+            ref={nodeMenuRef}
+            role="menu"
+            style={{ left: nodeMenu.x, top: nodeMenu.y }}
+          >
+            <label className="floo-node-menu__item" role="menuitem">
+              Upload image
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  uploadMediaImage(e.target.files?.[0])
+                  e.target.value = ''
+                }}
+              />
+            </label>
+          </div>
+        )}
+        <div
+          className="floo-dock"
+          ref={dockRef}
+          role="toolbar"
+          aria-label="Canvas tools"
+          aria-orientation="vertical"
+        >
+          <button
+            type="button"
+            className={`floo-dock__btn${tool === 'select' ? ' is-active' : ''}`}
+            onClick={() => setTool('select')}
+            aria-pressed={tool === 'select'}
+            aria-label="Select"
+            data-tip="Select"
+          >
+            <DockIcon name="select" />
+          </button>
+          <div className="floo-dock__slot">
+            <button
+              type="button"
+              className={`floo-dock__btn${tool === 'pen' ? ' is-active' : ''}`}
+              onClick={() => setTool('pen')}
+              aria-pressed={tool === 'pen'}
+              aria-label="Draw"
+              data-tip="Draw"
+            >
+              <DockIcon name="draw" />
+            </button>
+            {tool === 'pen' && (
+              <div className="floo-dock__menu floo-dock__menu--pen" ref={penMenuRef}>
+                <button
+                  type="button"
+                  className="floo-pen-color"
+                  onClick={() => setPickerOpen((o) => !o)}
+                  aria-expanded={pickerOpen}
+                  aria-label="Pen colour"
+                >
+                  <span className="floo-pen-color__swatch" style={{ background: penColor }} />
+                  <span className="floo-pen-color__label">Colour</span>
+                  <span className="floo-pen-color__hex">{penColor}</span>
+                </button>
+                {pickerOpen && <ColorPicker value={penColor} onChange={setPenColor} />}
+                <div className="floo-pen-size">
+                  <div className="floo-pen-size__head">
+                    <span>Size</span>
+                    <span className="floo-pen-size__value">{penWidth}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={PEN_SIZE_MIN}
+                    max={PEN_SIZE_MAX}
+                    step={1}
+                    value={penWidth}
+                    onChange={(e) => setPenWidth(Number(e.target.value))}
+                    aria-label="Brush size"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className={`floo-dock__btn${tool === 'eraser' ? ' is-active' : ''}`}
+            onClick={() => setTool('eraser')}
+            aria-pressed={tool === 'eraser'}
+            aria-label="Eraser"
+            data-tip="Eraser"
+          >
+            <DockIcon name="eraser" />
+          </button>
+          <button
+            type="button"
+            className="floo-dock__btn"
+            onClick={() => onPaletteAdd('media')}
+            aria-label="Add image"
+            data-tip="Image"
+          >
+            <DockIcon name="media" />
+          </button>
+          <button
+            type="button"
+            className="floo-dock__btn"
+            onClick={() => onPaletteAdd('text')}
+            aria-label="Add text box"
+            data-tip="Text box"
+          >
+            <DockIcon name="text" />
+          </button>
+          <div className="floo-dock__slot">
+            <button
+              type="button"
+              className="floo-dock__btn"
+              onClick={() => setDockMenu(dockMenu === 'shapes' ? null : 'shapes')}
+              aria-expanded={dockMenu === 'shapes'}
+              aria-haspopup="menu"
+              aria-label="Shapes"
+              data-tip="Shapes"
+            >
+              <DockIcon name="shapes" />
+            </button>
+            {dockMenu === 'shapes' && <ShapesMenu onAdd={onPaletteAdd} />}
+          </div>
+          <div className="floo-dock__slot">
+            <button
+              type="button"
+              className="floo-dock__btn"
+              onClick={() => setDockMenu(dockMenu === 'more' ? null : 'more')}
+              aria-expanded={dockMenu === 'more'}
+              aria-haspopup="menu"
+              aria-label="More options"
+              data-tip="More options"
+            >
+              <DockIcon name="more" />
+            </button>
+            {dockMenu === 'more' && (
+              <div
+                className="floo-dock__menu floo-dock__menu--more"
+                role="menu"
+                aria-label="More options"
+                onClick={() => setDockMenu(null)}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="floo-sidebar__btn"
+                  onClick={undo}
+                  disabled={!canUndo}
+                >
+                  <ActionIcon name="undo" />
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="floo-sidebar__btn"
+                  onClick={redo}
+                  disabled={!canRedo}
+                >
+                  <ActionIcon name="redo" />
+                  Redo
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="floo-sidebar__btn floo-sidebar__btn--busy"
+                  onClick={onAutoLayout}
+                  disabled={layingOut}
+                >
+                  <ActionIcon name="layout" />
+                  {layingOut ? 'Laying out…' : 'Auto-layout'}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="floo-sidebar__btn floo-sidebar__btn--busy"
+                  onClick={() => void exportImage('png')}
+                  disabled={isCanvasEmpty || exporting}
+                >
+                  <ActionIcon name="png" />
+                  {exporting ? 'Exporting…' : 'Export PNG'}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="floo-sidebar__btn floo-sidebar__btn--busy"
+                  onClick={() => void exportImage('jpeg')}
+                  disabled={isCanvasEmpty || exporting}
+                >
+                  <ActionIcon name="jpg" />
+                  Export JPG
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="floo-sidebar__btn"
+                  onClick={exportJson}
+                >
+                  <ActionIcon name="braces" />
+                  Export JSON
+                </button>
+                <label
+                  className="floo-sidebar__btn"
+                  role="menuitem"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ActionIcon name="upload" />
+                  Import JSON
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) void importJson(file)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="floo-sidebar__btn"
+                  onClick={toggleTheme}
+                >
+                  <ActionIcon name="contrast" />
+                  {theme === 'dark' ? 'Light theme' : 'Dark theme'}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="floo-sidebar__btn floo-sidebar__btn--danger"
+                  onClick={clearFlowchart}
+                  disabled={isCanvasEmpty}
+                >
+                  <ActionIcon name="trash" />
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
         <PromptPanel nodes={nodes} edges={edges} drawings={drawings} onApplyGraph={applyGraph} />
       </div>
     </div>

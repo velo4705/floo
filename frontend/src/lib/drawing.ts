@@ -6,8 +6,10 @@ import { NODE_SIZE } from './layout'
 
 export type DrawTool = 'select' | 'pen' | 'eraser'
 
-export const PEN_COLORS = ['#9333ea', '#ec4899', '#2563eb', '#16a34a', '#dc2626'] as const
-export const PEN_WIDTHS = [3, 5, 8] as const
+export const DEFAULT_PEN_COLOR = '#9333ea'
+export const DEFAULT_PEN_WIDTH = 5
+export const PEN_SIZE_MIN = 1
+export const PEN_SIZE_MAX = 20
 
 /** Extra hit radius around a stroke, in screen pixels (scaled by zoom). */
 export const HIT_TOLERANCE_PX = 6

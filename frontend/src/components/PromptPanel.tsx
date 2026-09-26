@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { applyEdit, isLikelyOversimplified, validateFlowchart } from '@floo/shared'
 
@@ -47,8 +47,16 @@ export function PromptPanel({ nodes, edges, drawings, onApplyGraph }: PromptPane
   const [warnings, setWarnings] = useState<string[]>([])
   const [changes, setChanges] = useState<string[]>([])
   const startedAtRef = useRef<number | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const hasContent = nodes.length > 0
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [prompt, mode])
 
   useEffect(() => {
     if (!loading) {
@@ -147,36 +155,24 @@ export function PromptPanel({ nodes, edges, drawings, onApplyGraph }: PromptPane
   }
 
   return (
-    <div className={`prompt-panel${hasContent ? ' prompt-panel--compact' : ''}`}>
-      <div className="prompt-panel__inner">
-        <h2 className="prompt-panel__title">Describe your process</h2>
-        {!hasContent && (
-          <p className="prompt-panel__subtitle">
-            Type a description and Floo will generate a flowchart for you.
-          </p>
-        )}
-        {hasContent && (
-          <div className="prompt-panel__tabs">
-            <button
-              type="button"
-              className={`prompt-panel__tab${mode === 'create' ? ' is-active' : ''}`}
-              onClick={() => setMode('create')}
-            >
-              Create
-            </button>
-            <button
-              type="button"
-              className={`prompt-panel__tab${mode === 'edit' ? ' is-active' : ''}`}
-              onClick={() => setMode('edit')}
-            >
-              Edit diagram
-            </button>
-          </div>
-        )}
-        <div className="prompt-panel__input-row">
+    <div className="prompt-panel">
+      {error && <p className="prompt-panel__error">{error}</p>}
+      {changes.length > 0 && (
+        <p className="prompt-panel__changes">{changes.join(' ')}</p>
+      )}
+      {warnings.length > 0 && (
+        <ul className="prompt-panel__warn">
+          {warnings.map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+      )}
+      <div className="prompt-panel__input-row">
+        <div className="prompt-panel__composer">
           <textarea
+            ref={textareaRef}
             className="prompt-panel__textarea"
-            rows={hasContent ? 2 : 4}
+            rows={1}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={
@@ -192,7 +188,25 @@ export function PromptPanel({ nodes, edges, drawings, onApplyGraph }: PromptPane
               }
             }}
           />
-          <div className="prompt-panel__submit-wrap">
+          <div className="prompt-panel__composer-foot">
+            {hasContent && (
+              <div className="prompt-panel__tabs">
+                <button
+                  type="button"
+                  className={`prompt-panel__tab${mode === 'create' ? ' is-active' : ''}`}
+                  onClick={() => setMode('create')}
+                >
+                  Create
+                </button>
+                <button
+                  type="button"
+                  className={`prompt-panel__tab${mode === 'edit' ? ' is-active' : ''}`}
+                  onClick={() => setMode('edit')}
+                >
+                  Edit diagram
+                </button>
+              </div>
+            )}
             {loading && (
               <span className="prompt-panel__submit-timer" role="timer" aria-live="polite">
                 {formatElapsed(elapsed)}
@@ -203,25 +217,27 @@ export function PromptPanel({ nodes, edges, drawings, onApplyGraph }: PromptPane
               className="prompt-panel__submit"
               onClick={() => void generate()}
               disabled={loading || !prompt.trim()}
+              aria-label={mode === 'edit' && hasContent ? 'Apply edit' : 'Generate'}
+              title={mode === 'edit' && hasContent ? 'Apply edit' : 'Generate'}
             >
-              {mode === 'edit' && hasContent ? 'Apply edit' : 'Generate'}
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M12 20V6" />
+                <path d="M5.5 12.5 12 6l6.5 6.5" />
+              </svg>
             </button>
           </div>
         </div>
-        {error && <p className="prompt-panel__error">{error}</p>}
-        {changes.length > 0 && (
-          <p className="prompt-panel__changes">{changes.join(' ')}</p>
-        )}
-        {warnings.length > 0 && (
-          <ul className="prompt-panel__warn">
-            {warnings.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-        )}
-        <p className="prompt-panel__hint">
-          {mode === 'edit' && hasContent ? 'Ctrl+Enter to apply' : 'Ctrl+Enter to generate'}
-        </p>
       </div>
     </div>
   )

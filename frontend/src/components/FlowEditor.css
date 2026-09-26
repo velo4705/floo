@@ -6,53 +6,7 @@
   color: var(--text);
 }
 
-/* Sidebar */
-.floo-sidebar {
-  display: flex;
-  flex-direction: column;
-  width: 200px;
-  flex-shrink: 0;
-  border-right: 1px solid var(--border-sidebar);
-  background: var(--bg-subtle);
-}
-
-.palette {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-}
-
-.palette__title {
-  margin: 0 0 4px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.palette__hint {
-  margin: 0 0 12px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.palette__item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-  color: var(--text);
-  font-size: 13px;
-  cursor: grab;
-}
-
-.palette__item:active {
-  cursor: grabbing;
-}
-
+/* Shape swatches — also used by the dock's Shapes menu. */
 .palette__swatch {
   width: 26px;
   height: 18px;
@@ -74,10 +28,14 @@
   background: #1976d2;
 }
 
+/* A decision is a *square* turned 45°, so a 26x18 box rotated 45° comes out a
+   rhomboid. Clip a square instead and centre it in the column. */
 .palette__swatch--decision {
-  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  margin: 0 4px;
   background: #ed6c02;
-  transform: rotate(45deg) scale(0.9);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
 
 .palette__swatch--input,
@@ -94,9 +52,11 @@
   background: #00838f;
 }
 
+/* Matches the node: a dashed outline, not a solid block. */
 .palette__swatch--loop {
+  border: 1.5px dashed #ef6c00;
   border-radius: 5px;
-  background: #ef6c00;
+  background: rgb(239 108 0 / 0.14);
 }
 
 .palette__swatch--text {
@@ -116,9 +76,21 @@
   background: #e0f7fa;
 }
 
+/* Cylinder: same 50%/16% curve as the node, plus its ridge line. */
 .palette__swatch--database {
-  border-radius: 50% / 35%;
+  position: relative;
+  border-radius: 50% / 16%;
   background: #3949ab;
+}
+
+.palette__swatch--database::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  left: 3px;
+  height: 4px;
+  border-bottom: 1.5px solid rgb(255 255 255 / 0.65);
 }
 
 .palette__swatch--document {
@@ -144,18 +116,275 @@
   background: #5e35b1;
 }
 
-/* Sidebar footer */
-.floo-sidebar__footer {
-  padding: 12px;
-  border-top: 1px solid var(--border-sidebar);
+/* Tool dock — vertical icon rail pinned to the left edge, vertically centred. */
+.floo-dock {
+  position: absolute;
+  z-index: 15;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border-control);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
+}
+
+[data-theme='dark'] .floo-dock {
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+.floo-dock__slot {
+  position: relative;
+  display: flex;
+}
+
+.floo-dock__btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.floo-dock__btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.floo-dock__btn.is-active,
+.floo-dock__btn[aria-expanded='true'] {
+  border-color: var(--border-control);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Tooltips — instant and styled, on hover and on keyboard focus. Replaces the
+   native title attribute, which was slow and OS-drawn. */
+.floo-dock__btn[data-tip] {
+  position: relative;
+}
+
+.floo-dock__btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 9px);
+  z-index: 3;
+  padding: 4px 8px;
+  transform: translateY(-50%) scale(0.94);
+  transform-origin: left center;
+  border: 1px solid var(--border-control);
+  border-radius: 6px;
+  background: var(--bg-overlay);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.13s ease, transform 0.13s ease;
+}
+
+.floo-dock__btn[data-tip]::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 4px);
+  z-index: 3;
+  width: 7px;
+  height: 7px;
+  transform: translateY(-50%) rotate(45deg);
+  border-bottom: 1px solid var(--border-control);
+  border-left: 1px solid var(--border-control);
+  background: var(--bg-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.13s ease;
+}
+
+.floo-dock__btn[data-tip]:hover::after,
+.floo-dock__btn[data-tip]:focus-visible::after,
+.floo-dock__btn[data-tip]:hover::before,
+.floo-dock__btn[data-tip]:focus-visible::before {
+  opacity: 1;
+}
+
+.floo-dock__btn[data-tip]:hover::after,
+.floo-dock__btn[data-tip]:focus-visible::after {
+  transform: translateY(-50%) scale(1);
+}
+
+/* The open flyout already says what the button is. */
+.floo-dock__btn[data-tip][aria-expanded='true']::after,
+.floo-dock__btn[data-tip][aria-expanded='true']::before {
+  opacity: 0;
+}
+
+/* Popovers open to the right of the rail, away from the canvas edge. */
+.floo-dock__menu {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: calc(100% + 10px);
+  transform: translateY(-50%);
+  padding: 8px;
+  border: 1px solid var(--border-control);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.18);
+}
+
+[data-theme='dark'] .floo-dock__menu {
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.5);
+}
+
+.floo-dock__menu--shapes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  width: 296px;
+  max-height: min(56vh, 420px);
+  overflow-y: auto;
+}
+
+.floo-dock__shape {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.floo-dock__shape:hover {
+  background: var(--bg-elevated);
+}
+
+.floo-dock__menu--more {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 172px;
+  padding: 6px;
+}
+
+/* Icon + label rows. `box-sizing` matters: the Import row is a <label>, not a
+   form control, so a content-box width:100% would overflow the menu. */
+.floo-dock__menu--more .floo-sidebar__btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.floo-dock__menu--more .floo-sidebar__btn > svg {
+  flex-shrink: 0;
+  color: var(--text-soft);
+  transition: color 0.15s;
+}
+
+.floo-dock__menu--more .floo-sidebar__btn:hover:not(:disabled) > svg {
+  color: var(--accent);
+}
+
+.floo-dock__menu--more .floo-sidebar__btn:disabled > svg {
+  color: inherit;
+}
+
+.floo-dock__menu--pen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 176px;
+}
+
+/* Right-click menu on a Media node */
+.floo-node-menu {
+  position: fixed;
+  z-index: 30;
+  min-width: 148px;
+  padding: 5px;
+  border: 1px solid var(--border-control);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.18);
+}
+
+[data-theme='dark'] .floo-node-menu {
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.5);
+}
+
+.floo-node-menu__item {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.floo-node-menu__item:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.floo-node-menu__item input {
+  display: none;
+}
+
+/* Inspector — top-left, stacked above the left-hand tool rail so the minimap
+   keeps the top-right corner. */
+.floo-inspector-dock {
+  position: absolute;
+  z-index: 15;
+  top: 16px;
+  left: 16px;
+  width: 240px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--border-control);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
+}
+
+[data-theme='dark'] .floo-inspector-dock {
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+.floo-inspector-dock .floo-sidebar__inspector {
+  border-top: none;
+  background: transparent;
+}
+
+.floo-inspector-dock .floo-sidebar__inspector + .floo-sidebar__inspector {
+  border-top: 1px solid var(--border-soft);
 }
 
 .floo-sidebar__btn {
   padding: 8px 12px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-control);
   border-radius: 6px;
   background: var(--bg-elevated);
   color: var(--text);
@@ -198,12 +427,12 @@
 }
 
 [data-theme='dark'] .floo-sidebar__btn--danger {
-  color: #f87171;
+  color: #f38ba8;
 }
 
 [data-theme='dark'] .floo-sidebar__btn--danger:hover:not(:disabled) {
-  border-color: #f87171;
-  color: #fca5a5;
+  border-color: #f38ba8;
+  color: #f5c2e7;
 }
 
 .floo-sidebar__btn input {
@@ -237,7 +466,7 @@
   width: 100%;
   box-sizing: border-box;
   padding: 8px 10px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-control);
   border-radius: 6px;
   background: var(--bg);
   color: var(--text);
@@ -261,49 +490,184 @@
   color: var(--text-soft);
 }
 
-/* Drawing tools */
-.floo-tools {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  border-top: 1px solid var(--border-sidebar);
-  background: var(--bg-subtle);
-  flex-shrink: 0;
-}
-
-.floo-tools__modes .floo-sidebar__btn {
-  padding: 7px 4px;
-}
-
+/* Drawing tools — the pen flyout in the dock */
 .floo-sidebar__btn.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.floo-tools__colors {
+/* Colour control: a button that reveals the in-app picker. Nothing here opens
+   an OS colour window. */
+.floo-pen-color {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.floo-pen-color:hover,
+.floo-pen-color[aria-expanded='true'] {
+  border-color: var(--accent);
+}
+
+.floo-pen-color__swatch {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+}
+
+.floo-pen-color__label {
+  color: var(--text);
+}
+
+.floo-pen-color__hex {
+  margin-left: auto;
+  color: var(--text-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.floo-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.floo-picker__sv {
+  position: relative;
+  width: 100%;
+  height: 88px;
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.floo-picker__sv-white {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #fff, rgb(255 255 255 / 0));
+}
+
+.floo-picker__sv-black {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, #000, rgb(0 0 0 / 0));
+}
+
+.floo-picker__sv:focus-visible,
+.floo-picker__hue:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.floo-picker__hue {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #f00 0%,
+    #ff0 17%,
+    #0f0 33%,
+    #0ff 50%,
+    #00f 67%,
+    #f0f 83%,
+    #f00 100%
+  );
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.floo-picker__cursor {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+
+.floo-picker__foot {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.floo-tools__color {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
+.floo-picker__preview {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
 }
 
-.floo-tools__color.is-active {
-  border-color: var(--text-strong);
-  box-shadow: 0 0 0 2px var(--bg-subtle);
+.floo-picker__hex {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border-control);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
-.floo-tools__widths .floo-sidebar__btn {
-  padding: 5px 4px;
+.floo-picker__hex:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.floo-pen-size {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px 8px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.floo-pen-size__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 12px;
+  color: var(--text);
+}
+
+.floo-pen-size__value {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.floo-pen-size input[type='range'] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .floo-draw-layer__select {
@@ -581,6 +945,53 @@
   text-align: center;
 }
 
+/* In-place label editor — replaces .floo-label while a node is being renamed. */
+.floo-node__editor {
+  position: absolute;
+  z-index: 2;
+  inset: 3px;
+  width: calc(100% - 6px);
+  padding: 4px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: #212529;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.floo-node__editor:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+.floo-node__editor--text {
+  padding: 10px 12px;
+  font-family: 'Indie Flower', cursive;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* A media label is a bottom caption, so its editor edits the caption strip
+   rather than covering the picture. */
+.floo-node--media .floo-node__editor {
+  top: auto;
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: auto;
+  height: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+[data-theme='dark'] .floo-node__editor {
+  color: var(--text);
+}
+
 .floo-handle {
   width: 9px;
   height: 9px;
@@ -612,7 +1023,7 @@
 }
 
 [data-theme='dark'] .floo-shape {
-  background: var(--bg-elevated);
+  background: var(--bg-overlay);
 }
 
 [data-theme='dark'] .floo-node--start .floo-shape {
@@ -692,7 +1103,7 @@
 }
 
 [data-theme='dark'] .floo-label {
-  color: #f3f4f6;
+  color: #cdd6f4;
 }
 
 /* React Flow treats type="input"/"output" as its built-in node types and
@@ -732,12 +1143,6 @@
   outline: none;
 }
 
-/* MiniMap — top right */
-.react-flow__minimap {
-  top: 12px !important;
-  bottom: auto !important;
-}
-
 /* Edge labels (Yes/No/… and user-entered connection labels).
    React Flow draws default labels in the edges SVG, which sits *under* the
    node layer — so a label mid-path behind a shape was unreadable. Our
@@ -754,49 +1159,23 @@
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
-  background: var(--bg-elevated);
+  background: var(--bg-overlay);
   border: 1px solid var(--border-soft);
   border-radius: 4px;
 }
 
-/* Prompt panel — bottom of canvas */
+/* Prompt panel — a bare, transparent anchor. The only thing you actually see
+   is the chat box below, grounded to the bottom edge. */
 .prompt-panel {
   position: absolute;
-  z-index: 10;
+  z-index: 12;
   bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 20px;
-  background: var(--panel-bg);
-  border-top: 1px solid var(--border-soft);
-  transition: padding 0.2s;
-}
-
-.prompt-panel--compact {
-  padding: 12px 20px;
-}
-
-.prompt-panel__inner {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.prompt-panel__title {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-strong);
-}
-
-.prompt-panel--compact .prompt-panel__title {
-  font-size: 14px;
-  margin-bottom: 0;
-}
-
-.prompt-panel__subtitle {
-  margin: 0 0 12px;
-  font-size: 14px;
-  color: var(--text-muted);
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transform: translateX(-50%);
+  width: min(720px, calc(100% - 148px));
 }
 
 .prompt-panel__input-row {
@@ -805,43 +1184,70 @@
   align-items: stretch;
 }
 
-.prompt-panel__textarea {
+.prompt-panel__composer {
+  position: relative;
+  display: flex;
   flex: 1;
-  padding: 10px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--bg-elevated);
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border-control);
+  border-bottom: none;
+  border-radius: 18px 18px 0 0;
+  background: var(--panel-bg);
+  box-shadow: 0 -6px 24px rgb(0 0 0 / 0.1);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+[data-theme='dark'] .prompt-panel__composer {
+  box-shadow: 0 -6px 24px rgb(0 0 0 / 0.4);
+}
+
+.prompt-panel__composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 -6px 24px rgb(0 0 0 / 0.1), 0 0 0 3px var(--accent-soft);
+}
+
+[data-theme='dark'] .prompt-panel__composer:focus-within {
+  box-shadow: 0 -6px 24px rgb(0 0 0 / 0.4), 0 0 0 3px var(--accent-soft);
+}
+
+.prompt-panel__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px 4px;
+  border: none;
+  background: transparent;
   color: var(--text);
   font: inherit;
   font-size: 14px;
   line-height: 1.5;
-  resize: vertical;
+  resize: none;
   outline: none;
-  transition: border-color 0.15s;
+  overflow-y: auto;
+  max-height: 40vh;
 }
 
-.prompt-panel__textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.prompt-panel__submit-wrap {
-  position: relative;
-  align-self: flex-end;
+.prompt-panel__composer-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 8px 12px;
 }
 
 .prompt-panel__submit {
-  padding: 10px 20px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--accent);
-  color: #fff;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--on-accent);
   cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
+  transition: background 0.15s, opacity 0.15s;
 }
 
 .prompt-panel__submit:hover:not(:disabled) {
@@ -849,15 +1255,11 @@
 }
 
 .prompt-panel__submit:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .prompt-panel__submit-timer {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 6px);
-  transform: translateX(-50%);
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--timer-bg);
@@ -866,32 +1268,27 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.18);
 }
 
 .prompt-panel__error {
-  margin: 8px 0 0;
+  margin: 0;
+  padding: 0 2px;
   font-size: 13px;
   color: #dc2626;
 }
 
 [data-theme='dark'] .prompt-panel__error {
-  color: #f87171;
+  color: #f38ba8;
 }
 
+/* Tabs live inside the composer footer, ChatGPT-style. */
 .prompt-panel__tabs {
   display: flex;
   gap: 4px;
-  margin: 0 0 8px;
-  padding: 3px;
-  background: var(--tab-bar);
-  border-radius: 8px;
-  width: fit-content;
 }
 
 .prompt-panel__tab {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--tab-idle);
   font-size: 12px;
@@ -900,24 +1297,26 @@
   cursor: pointer;
 
   &.is-active {
-    color: #fff;
-    background: var(--tab-active-bg);
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent);
   }
 }
 
 .prompt-panel__changes {
-  margin: 8px 0 0;
+  margin: 0;
+  padding: 0 2px;
   font-size: 12px;
   color: #9333ea;
 }
 
 [data-theme='dark'] .prompt-panel__changes {
-  color: #c084fc;
+  color: #cba6f7;
 }
 
 .prompt-panel__warn {
-  margin: 8px 0 0;
-  padding: 0 0 0 18px;
+  margin: 0;
+  padding: 0 2px 0 20px;
   font-size: 12px;
   line-height: 1.5;
   color: #b45309;
@@ -929,20 +1328,14 @@
 }
 
 [data-theme='dark'] .prompt-panel__warn {
-  color: #fbbf24;
+  color: #f9e2af;
 }
 
 [data-theme='dark'] .prompt-panel__warn li::marker {
-  color: #fbbf24;
-}
-
-.prompt-panel__hint {
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: var(--text-soft);
+  color: #fab387;
 }
 
 /* React Flow dark tweaks (colorMode handles most chrome) */
 [data-theme='dark'] .react-flow__minimap {
-  background: var(--bg-elevated);
+  background: var(--bg-overlay);
 }

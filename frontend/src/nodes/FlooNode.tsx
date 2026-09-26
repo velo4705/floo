@@ -1,15 +1,71 @@
+import { useEffect, useRef, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 
 import { PORTS, type NodeData } from '../lib/adapters'
 
-export default function FlooNode({ data, selected }: NodeProps) {
+type CommitLabel = (id: string, label: string) => void
+
+function useLabelEditor(id: string, label: string, editing: boolean, data: NodeData) {
+  const [draft, setDraft] = useState(label)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const commitLabel = data.onCommitLabel as CommitLabel | undefined
+  const cancelEdit = data.onCancelEdit as (() => void) | undefined
+
+  useEffect(() => {
+    if (!editing) return
+    setDraft(label)
+    inputRef.current?.select()
+  }, [editing, label])
+
+  return {
+    draft,
+    setDraft,
+    inputRef,
+    commit: () => {
+      const next = draft.trim()
+      if (next && next !== label) commitLabel?.(id, next)
+      else cancelEdit?.()
+    },
+    cancel: () => cancelEdit?.(),
+  }
+}
+
+export default function FlooNode({ id, data, selected }: NodeProps) {
   const { label, kind, leftSource, leftTarget, url } = data as NodeData
+  const editing = data.editing === true
+  const editor = useLabelEditor(id, label, editing, data as NodeData)
+
+  // Double-click swaps the static label for a real input in place, so renaming
+  // never needs a side panel. `nodrag` keeps React Flow from panning the node
+  // while the caret is placed.
+  const labelView = editing ? (
+    <input
+      ref={editor.inputRef}
+      className={`floo-node__editor nodrag nopan${kind === 'text' ? ' floo-node__editor--text' : ''}`}
+      value={editor.draft}
+      aria-label="Node label"
+      onChange={(e) => editor.setDraft(e.target.value)}
+      onBlur={editor.commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          editor.commit()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          editor.cancel()
+        }
+      }}
+    />
+  ) : (
+    <div className="floo-label">{label}</div>
+  )
+
   // Text boxes are free-floating annotations: no ports, so nothing can attach.
   if (kind === 'text') {
     return (
       <div className={`floo-node floo-node--text${selected ? ' is-selected' : ''}`}>
         <div className="floo-shape" />
-        <div className="floo-label">{label}</div>
+        {labelView}
       </div>
     )
   }
@@ -24,7 +80,7 @@ export default function FlooNode({ data, selected }: NodeProps) {
             <div className="floo-media-placeholder">No image</div>
           )}
         </div>
-        <div className="floo-label">{label}</div>
+        {labelView}
       </div>
     )
   }
@@ -37,7 +93,7 @@ export default function FlooNode({ data, selected }: NodeProps) {
   return (
     <div className={`floo-node floo-node--${kind}${selected ? ' is-selected' : ''}`}>
       <div className="floo-shape" />
-      <div className="floo-label">{label}</div>
+      {labelView}
       <Handle id={PORTS.TOP} type="target" position={Position.Top} className="floo-handle" />
       <Handle id={PORTS.BOTTOM} type="source" position={Position.Bottom} className="floo-handle" />
       {/* Left is both: loop-backs enter here (target) and, when the source sits

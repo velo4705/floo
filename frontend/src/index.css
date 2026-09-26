@@ -1,55 +1,70 @@
-/* Theme tokens — light is default; dark applies via [data-theme="dark"]. */
+/* Theme tokens — light is default; dark applies via [data-theme="dark"].
+   Light is a low-glare "milk" palette; dark is Catppuccin Mocha. In dark, each
+   surface sits one step up the Mocha ramp from whatever it sits on, so
+   controls read as a smooth lift instead of a separate material:
+     mantle #181825  panels/sidebar  ->  #282839  controls on those panels
+     surface0 #313244 canvas         ->  #45475a  chips on the canvas
+   Anything painted on the canvas must use --bg-overlay, not --bg-elevated.
+   --border-control is deliberately low-contrast: the fill already separates a
+   control from its panel, so the border only has to trace the edge. Hover,
+   focus and active states still switch to --accent, so they stay obvious. */
 :root {
-  --bg: #fff;
-  --bg-subtle: #fff1fd;
-  --bg-elevated: #fff;
-  --text: #212529;
-  --text-strong: #111827;
-  --text-muted: #6b7280;
-  --text-soft: #9ca3af;
-  --border: #f3e0f9;
-  --border-strong: #e8cbf4;
-  --border-soft: #faebfc;
-  --border-sidebar: #e4d4fb;
+  --bg: #fbf9f4;
+  --bg-subtle: #f4efe4;
+  --bg-elevated: #fffdf8;
+  --text: #3b372f;
+  --text-strong: #221e19;
+  --text-muted: #6e675c;
+  --text-soft: #9a9386;
+  --border: #e9e3d5;
+  --border-strong: #d9d1bf;
+  --border-soft: #f0eade;
+  --border-sidebar: #e3dbc9;
+  --border-control: #e9e3d5;
   --accent: #9333ea;
   --accent-hover: #7e22ce;
   --accent-soft: rgb(147 51 234 / 0.15);
   --focus-ring: #9333ea;
-  --canvas-mask: rgb(255 255 255 / 100%);
-  --panel-bg: #fff1fd;
-  --tab-bar: #f3e0f9;
+  --canvas-mask: rgb(251 249 244 / 100%);
+  --panel-bg: #f4efe4;
+  --tab-bar: #f2ecdf;
   --tab-active-bg: #9333ea;
-  --tab-idle: #6b7280;
-  --timer-bg: #1a1136;
-  --timer-fg: #fff;
-  --rf-bg: #fff;
+  --tab-idle: #6e675c;
+  --timer-bg: #221e19;
+  --timer-fg: #fbf9f4;
+  --rf-bg: #fbf9f4;
+  --bg-overlay: #fffdf8;
+  --on-accent: #fffdf8;
   color-scheme: light;
 }
 
 [data-theme='dark'] {
-  --bg: #140e26;
-  --bg-subtle: #260c50;
-  --bg-elevated: #1f1740;
-  --text: #e5e7eb;
-  --text-strong: #f3f4f6;
-  --text-muted: #9ca3af;
-  --text-soft: #6b7280;
-  --border: #3a2d5e;
-  --border-strong: #4d3c7a;
-  --border-soft: #3a2d5e;
-  --border-sidebar: rgb(168 85 247 / 0.35);
-  --accent: #a855f7;
-  --accent-hover: #9333ea;
-  --accent-soft: rgb(168 85 247 / 0.2);
-  --focus-ring: #a855f7;
-  --canvas-mask: rgb(20 14 38 / 100%);
-  --panel-bg: #260c50;
-  --tab-bar: #120b26;
-  --tab-active-bg: #3a2b64;
-  --tab-idle: #94a3b8;
-  --timer-bg: #f5f0ff;
-  --timer-fg: #140e26;
-  --rf-bg: #140e26;
+  --bg: #313244;
+  --bg-subtle: #181825;
+  --bg-elevated: #282839;
+  --text: #cdd6f4;
+  --text-strong: #f5e0dc;
+  --text-muted: #a6adc8;
+  --text-soft: #7f849c;
+  --border: #585b70;
+  --border-strong: #6c7086;
+  --border-soft: #45475a;
+  --border-sidebar: #45475a;
+  --border-control: #313244;
+  --accent: #cba6f7;
+  --accent-hover: #b4befe;
+  --accent-soft: rgb(203 166 247 / 0.2);
+  --focus-ring: #cba6f7;
+  --canvas-mask: rgb(49 50 68 / 100%);
+  --panel-bg: #181825;
+  --tab-bar: #181825;
+  --tab-active-bg: #cba6f7;
+  --tab-idle: #7f849c;
+  --timer-bg: #cdd6f4;
+  --timer-fg: #181825;
+  --rf-bg: #313244;
+  --bg-overlay: #45475a;
+  --on-accent: #181825;
   color-scheme: dark;
 }
 
