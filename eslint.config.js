@@ -11,7 +11,7 @@ export default tseslint.config(
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['backend/**/*.ts', 'shared/**/*.ts'],
+    files: ['backend/**/*.ts', 'shared/**/*.ts', 'api/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
 )

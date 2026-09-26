@@ -57,7 +57,9 @@ export function createApp(provider: FlowchartProvider, options: AppOptions = {})
     return null
   }
 
-  app.get('/health', (c) => c.json({ status: 'ok' }))
+  const health = (c: Context) => c.json({ status: 'ok' })
+  app.get('/health', health)
+  app.get('/api/health', health)
 
   app.post('/api/generate', async (c) => {
     console.log('[debug] POST /api/generate received')
