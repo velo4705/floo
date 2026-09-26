@@ -65,7 +65,7 @@ export function createApp(provider: FlowchartProvider, options: AppOptions = {})
     console.log('[debug] POST /api/generate received')
     const body = await c.req.json().catch(() => null)
     const parsed = parsePromptBody(body)
-    if (!parsed.ok) {
+    if (parsed.ok === false) {
       return c.json({ error: parsed.error }, 400)
     }
 
@@ -100,7 +100,7 @@ export function createApp(provider: FlowchartProvider, options: AppOptions = {})
   app.post('/api/edit', async (c) => {
     const body = await c.req.json().catch(() => null)
     const parsed = parsePromptBody(body)
-    if (!parsed.ok) {
+    if (parsed.ok === false) {
       return c.json({ error: parsed.error }, 400)
     }
 
@@ -109,7 +109,7 @@ export function createApp(provider: FlowchartProvider, options: AppOptions = {})
     }
 
     const marks = parseMarkedIds(body)
-    if (!marks.ok) {
+    if (marks.ok === false) {
       return c.json({ error: marks.error }, 400)
     }
 
