@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 
 import type { Context } from 'hono'
 
-import { isFlowchart } from '@floo/shared'
+import { isFlowchart } from '../../shared/src/index.js'
 
 import { DailyBudget, IpRateLimiter, envInt } from './rateLimit.js'
 import { markedNodesHint } from './llm/prompts.js'

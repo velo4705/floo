@@ -1,4 +1,9 @@
-import { isFlowchart, isLikelyOversimplified, repairFlowchart, validateFlowchart } from '@floo/shared'
+import {
+  isFlowchart,
+  isLikelyOversimplified,
+  repairFlowchart,
+  validateFlowchart,
+} from '../../../shared/src/index.js'
 
 import type { Flowchart, ValidationIssue } from '@floo/shared'
 

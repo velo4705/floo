@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk'
 
-import { isFlowchart } from '@floo/shared'
+import { isFlowchart } from '../../../shared/src/index.js'
 import type { Flowchart, ValidationIssue } from '@floo/shared'
 
 import { buildEditContent, buildRepairContent, buildUserContent } from './content.js'
