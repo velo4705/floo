@@ -3,7 +3,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'api/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -11,7 +11,7 @@ export default tseslint.config(
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['backend/**/*.ts', 'shared/**/*.ts', 'api-src/**/*.ts'],
+    files: ['backend/**/*.ts', 'shared/**/*.ts', 'api/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
 )

@@ -6,6 +6,5 @@ coverage/
 .env.*
 !.env.example
 .vite/
-api/*.mjs
 .vercel
 .DS_Store

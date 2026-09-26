@@ -2,10 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci",
-  "buildCommand": "npm run build && npm run build:api",
+  "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
   "functions": {
-    "api/*.mjs": {
+    "api/*.ts": {
       "maxDuration": 300
     }
   }
