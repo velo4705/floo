@@ -65,4 +65,6 @@ An upstream Gemini `429` blocks every Gemini tier for the retry window, so the c
 
 ## Contributing
 
-Check out the [contributing guidelines](https://github.com/floo-ai/floo/blob/main/CONTRIBUTING.md) to know how to get started.
+Check out the [contributing guidelines](https://github.com/velo4705/floo/blob/main/CONTRIBUTING.md) to know how to get started.
+
+floo is [MIT licensed](https://github.com/velo4705/floo/blob/main/LICENSE) — contributions are welcome.
