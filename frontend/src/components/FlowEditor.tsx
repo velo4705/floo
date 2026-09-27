@@ -56,8 +56,7 @@ import { applyTheme, getInitialTheme, type Theme } from '../lib/theme'
 import FlooNode from '../nodes/FlooNode'
 import { DrawLayer } from './DrawLayer'
 import { ColorPicker } from './ColorPicker'
-import { EdgeInspector } from './EdgeInspector'
-import { FlooEdge } from './FlooEdge'
+import { FlooEdge, type FlooEdgeData } from './FlooEdge'
 import { ShapesMenu } from './ShapesMenu'
 import { PromptPanel } from './PromptPanel'
 import './FlowEditor.css'
@@ -237,14 +236,13 @@ function ActionIcon({ name }: { name: ActionIconName }) {
 function FlowEditorInner() {
   const [nodes, setNodes, onNodesChangeRaw] = useNodesState(toRfNodes(sampleFlowchart))
   const [edges, setEdges, onEdgesChangeRaw] = useEdgesState(toRfEdges(sampleFlowchart))
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null)
   const [drawings, setDrawings] = useState<Drawing[]>([])
   const [tool, setTool] = useState<DrawTool>('select')
   const [penColor, setPenColor] = useState<string>(DEFAULT_PEN_COLOR)
   const [penWidth, setPenWidth] = useState<number>(DEFAULT_PEN_WIDTH)
-  const [labelFocusToken, setLabelFocusToken] = useState(0)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+  const [editingEdgeId, setEditingEdgeId] = useState<string | null>(null)
   const [nodeMenu, setNodeMenu] = useState<NodeMenu>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const penMenuRef = useRef<HTMLDivElement>(null)
@@ -305,10 +303,8 @@ function FlowEditorInner() {
     graphRef.current = { nodes, edges, drawings }
   }, [nodes, edges, drawings])
 
-  // One undo entry per drag gesture / label typing burst.
+  // One undo entry per drag gesture.
   const dragActiveRef = useRef(false)
-  const labelSessionRef = useRef(false)
-  const labelSessionTimerRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     applyTheme(theme)
@@ -317,8 +313,6 @@ function FlowEditorInner() {
   const toggleTheme = useCallback(() => {
     setTheme((t) => (t === 'light' ? 'dark' : 'light'))
   }, [])
-
-  const selectedEdge = selectedEdgeId ? (edges.find((e) => e.id === selectedEdgeId) ?? null) : null
 
   const canUndo = historyCanUndo(history)
   const canRedo = historyCanRedo(history)
@@ -437,39 +431,20 @@ function FlowEditorInner() {
     [pushHistory, onEdgesChangeRaw],
   )
 
-  const beginLabelSession = useCallback(() => {
-    if (!labelSessionRef.current) {
-      pushHistory()
-      labelSessionRef.current = true
-    }
-    window.clearTimeout(labelSessionTimerRef.current)
-    labelSessionTimerRef.current = window.setTimeout(() => {
-      labelSessionRef.current = false
-    }, 600)
-  }, [pushHistory])
-
-  useEffect(() => () => window.clearTimeout(labelSessionTimerRef.current), [])
-
   // Re-derive port ids from live positions on every change (preserving
   // selection/data), so loop-back geometry tracks node drags and applies to
   // charts created before a routing rule changed — not just at import time.
   const renderEdges = useMemo(() => refreshEdgePorts(nodes, edges), [nodes, edges])
 
   const onSelectionChange = useCallback((selection: OnSelectionChangeParams) => {
-    setSelectedEdgeId(
-      selection.nodes.length === 0 && selection.edges.length === 1 ? selection.edges[0]!.id : null,
-    )
     if (selection.nodes.length > 0 || selection.edges.length > 0) {
       setSelectedDrawingId(null)
     }
   }, [])
 
-  const onLabelEditShortcut = useCallback(() => {
-    setLabelFocusToken((t) => t + 1)
-  }, [])
-
   // Nodes edit their own label in place, so double-click only opens the input.
   const onNodeEdit = useCallback((_e: ReactMouseEvent, node: FlooNodeType) => {
+    setEditingEdgeId(null)
     setEditingNodeId(node.id)
   }, [])
 
@@ -483,6 +458,50 @@ function FlowEditorInner() {
   )
 
   const cancelNodeEdit = useCallback(() => setEditingNodeId(null), [])
+
+  // Edits in place like node labels, so double-click only opens the input.
+  const onEdgeEdit = useCallback((_e: ReactMouseEvent, edge: { id: string }) => {
+    setEditingNodeId(null)
+    setEditingEdgeId(edge.id)
+  }, [])
+
+  const startEdgeEdit = useCallback((id: string) => {
+    setEditingNodeId(null)
+    setEditingEdgeId(id)
+  }, [])
+
+  const commitEdgeLabel = useCallback(
+    (id: string, label: string) => {
+      setEditingEdgeId(null)
+      pushHistory()
+      setEdges((es) => setEdgeLabel(es, id, label))
+    },
+    [pushHistory, setEdges],
+  )
+
+  const cancelEdgeEdit = useCallback(() => setEditingEdgeId(null), [])
+
+  const displayEdges = useMemo(() => {
+    return renderEdges.map((edge) => {
+      const isEditing = edge.id === editingEdgeId
+      const edgeData = (edge.data ?? {}) as FlooEdgeData
+      if (!isEditing && edgeData.onStartEdit === startEdgeEdit) return edge
+      return {
+        ...edge,
+        data: {
+          ...edge.data,
+          onStartEdit: startEdgeEdit,
+          ...(isEditing
+            ? {
+                editing: true,
+                onCommitLabel: commitEdgeLabel,
+                onCancelEdit: cancelEdgeEdit,
+              }
+            : {}),
+        },
+      }
+    })
+  }, [renderEdges, editingEdgeId, startEdgeEdit, commitEdgeLabel, cancelEdgeEdit])
 
   // Decorate nodes with left-port usage so decisions can omit unused left
   // handles, and hand the one being renamed the callbacks its inline editor
@@ -535,15 +554,6 @@ function FlowEditorInner() {
     [nodeMenu, pushHistory, setNodes],
   )
 
-  const onEdgeLabelChange = useCallback(
-    (label: string) => {
-      if (!selectedEdgeId) return
-      beginLabelSession()
-      setEdges((eds) => setEdgeLabel(eds, selectedEdgeId, label))
-    },
-    [selectedEdgeId, beginLabelSession, setEdges],
-  )
-
   const onAutoLayout = useCallback(async () => {
     setLayingOut(true)
     try {
@@ -565,7 +575,6 @@ function FlowEditorInner() {
         setEdges((eds) =>
           eds.some((e) => e.selected) ? eds.map((e) => (e.selected ? { ...e, selected: false } : e)) : eds,
         )
-        setSelectedEdgeId(null)
       }
     },
     [setNodes, setEdges],
@@ -686,7 +695,6 @@ function FlowEditorInner() {
       try {
         setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n)))
         setEdges((eds) => eds.map((e) => (e.selected ? { ...e, selected: false } : e)))
-        setSelectedEdgeId(null)
         setSelectedDrawingId(null)
         await new Promise<void>((resolve) => {
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
@@ -725,7 +733,6 @@ function FlowEditorInner() {
     setNodes([])
     setEdges([])
     setDrawings([])
-    setSelectedEdgeId(null)
     setSelectedDrawingId(null)
   }, [isCanvasEmpty, pushHistory, setNodes, setEdges, setDrawings])
 
@@ -737,14 +744,14 @@ function FlowEditorInner() {
       >
         <ReactFlow
           nodes={renderNodes}
-          edges={renderEdges}
+          edges={displayEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           colorMode={theme}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onSelectionChange={onSelectionChange}
-          onEdgeDoubleClick={onLabelEditShortcut}
+          onEdgeDoubleClick={onEdgeEdit}
           onNodeDoubleClick={onNodeEdit}
           onNodeContextMenu={onNodeContextMenu}
           onConnect={onConnect}
@@ -771,16 +778,6 @@ function FlowEditorInner() {
           onErase={onEraseDrawings}
           onMoveStroke={onMoveDrawing}
         />
-        {selectedEdge && (
-          <div className="floo-inspector-dock">
-            <EdgeInspector
-              edge={selectedEdge}
-              nodes={nodes}
-              onChange={onEdgeLabelChange}
-              focusToken={labelFocusToken}
-            />
-          </div>
-        )}
         {nodeMenu && (
           <div
             className="floo-node-menu"

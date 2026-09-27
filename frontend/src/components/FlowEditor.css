@@ -353,35 +353,6 @@
   display: none;
 }
 
-/* Inspector — top-left, stacked above the left-hand tool rail so the minimap
-   keeps the top-right corner. */
-.floo-inspector-dock {
-  position: absolute;
-  z-index: 15;
-  top: 16px;
-  left: 16px;
-  width: 240px;
-  max-height: calc(100% - 32px);
-  overflow-y: auto;
-  border: 1px solid var(--border-control);
-  border-radius: 12px;
-  background: var(--panel-bg);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
-}
-
-[data-theme='dark'] .floo-inspector-dock {
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
-}
-
-.floo-inspector-dock .floo-sidebar__inspector {
-  border-top: none;
-  background: transparent;
-}
-
-.floo-inspector-dock .floo-sidebar__inspector + .floo-sidebar__inspector {
-  border-top: 1px solid var(--border-soft);
-}
-
 .floo-sidebar__btn {
   padding: 8px 12px;
   border: 1px solid var(--border-control);
@@ -437,57 +408,6 @@
 
 .floo-sidebar__btn input {
   display: none;
-}
-
-.floo-sidebar__inspector {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  padding: 12px;
-  border-top: 1px solid var(--border-sidebar);
-  background: var(--bg-elevated);
-}
-
-.floo-sidebar__inspector-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.floo-sidebar__inspector-route {
-  font-size: 12px;
-  color: var(--text);
-  margin-bottom: 8px;
-  word-break: break-word;
-}
-
-.floo-sidebar__input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 10px;
-  border: 1px solid var(--border-control);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
-}
-
-.floo-sidebar__input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.floo-sidebar__input--gap {
-  margin-top: 8px;
-}
-
-.floo-sidebar__inspector-hint {
-  margin: 6px 0 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--text-soft);
 }
 
 /* Drawing tools — the pen flyout in the dock */
@@ -945,16 +865,19 @@
   text-align: center;
 }
 
-/* In-place label editor — replaces .floo-label while a node is being renamed. */
+/* In-place label editor — replaces .floo-label while a node is being renamed.
+   It mirrors .floo-label rather than painting a box over the shape: the node
+   already outlines itself once selected, so the caret is the only cue needed.
+   `width: auto` (not 100%) because there is no global border-box reset, and
+   100% + padding would overflow the shape by the padding. */
 .floo-node__editor {
   position: absolute;
   z-index: 2;
-  inset: 3px;
-  width: calc(100% - 6px);
-  padding: 4px 6px;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  background: var(--bg-elevated);
+  inset: 0;
+  width: auto;
+  padding: 6px;
+  border: 0;
+  background: transparent;
   color: #212529;
   font: inherit;
   font-size: 13px;
@@ -963,8 +886,7 @@
 }
 
 .floo-node__editor:focus {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 0;
+  outline: none;
 }
 
 .floo-node__editor--text {
@@ -976,7 +898,8 @@
 }
 
 /* A media label is a bottom caption, so its editor edits the caption strip
-   rather than covering the picture. */
+   rather than covering the picture. It keeps the caption's gradient and white
+   text — a transparent field would leave the text floating over the image. */
 .floo-node--media .floo-node__editor {
   top: auto;
   right: 3px;
@@ -985,11 +908,26 @@
   width: auto;
   height: 28px;
   padding: 0 6px;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.55), transparent);
+  color: #fff;
   font-size: 12px;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
 }
 
 [data-theme='dark'] .floo-node__editor {
   color: var(--text);
+}
+
+[data-theme='dark'] .floo-node--media .floo-node__editor {
+  color: #fff;
+}
+
+/* The browser's default selection highlight is a cyan that fights the
+   palette, so theme it to the accent instead. */
+.floo-node__editor::selection,
+.floo-edge__editor::selection {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .floo-handle {
@@ -1162,6 +1100,30 @@
   background: var(--bg-overlay);
   border: 1px solid var(--border-soft);
   border-radius: 4px;
+  pointer-events: all;
+}
+
+.floo-edge-label.is-selected {
+  border-color: var(--accent);
+}
+
+.floo-edge-label__text {
+  cursor: text;
+}
+
+.floo-edge__editor {
+  /* Width comes from the size attribute (set to the draft length) so the chip
+     hugs the text instead of scrolling a fixed box; min-width is the floor. */
+  min-width: 8ch;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
 }
 
 /* Prompt panel — a bare, transparent anchor. The only thing you actually see

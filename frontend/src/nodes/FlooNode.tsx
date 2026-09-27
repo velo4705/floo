@@ -1,39 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 
 import { PORTS, type NodeData } from '../lib/adapters'
-
-type CommitLabel = (id: string, label: string) => void
-
-function useLabelEditor(id: string, label: string, editing: boolean, data: NodeData) {
-  const [draft, setDraft] = useState(label)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const commitLabel = data.onCommitLabel as CommitLabel | undefined
-  const cancelEdit = data.onCancelEdit as (() => void) | undefined
-
-  useEffect(() => {
-    if (!editing) return
-    setDraft(label)
-    inputRef.current?.select()
-  }, [editing, label])
-
-  return {
-    draft,
-    setDraft,
-    inputRef,
-    commit: () => {
-      const next = draft.trim()
-      if (next && next !== label) commitLabel?.(id, next)
-      else cancelEdit?.()
-    },
-    cancel: () => cancelEdit?.(),
-  }
-}
+import { useInlineLabelEditor } from '../lib/useInlineLabelEditor'
 
 export default function FlooNode({ id, data, selected }: NodeProps) {
   const { label, kind, leftSource, leftTarget, url } = data as NodeData
   const editing = data.editing === true
-  const editor = useLabelEditor(id, label, editing, data as NodeData)
+  const commitLabel = data.onCommitLabel as ((id: string, label: string) => void) | undefined
+  const cancelEdit = data.onCancelEdit as (() => void) | undefined
+  const editor = useInlineLabelEditor({
+    id,
+    label,
+    editing,
+    commitLabel: (nodeId, next) => commitLabel?.(nodeId, next),
+    cancelEdit: () => cancelEdit?.(),
+  })
 
   // Double-click swaps the static label for a real input in place, so renaming
   // never needs a side panel. `nodrag` keeps React Flow from panning the node
