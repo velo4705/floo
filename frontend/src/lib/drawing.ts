@@ -6,7 +6,7 @@ import { NODE_SIZE } from './layout'
 
 export type DrawTool = 'select' | 'pen' | 'eraser'
 
-export const DEFAULT_PEN_COLOR = '#9333ea'
+export const DEFAULT_PEN_COLOR = '#9b00ff'
 export const DEFAULT_PEN_WIDTH = 5
 export const PEN_SIZE_MIN = 1
 export const PEN_SIZE_MAX = 20

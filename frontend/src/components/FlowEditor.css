@@ -1307,11 +1307,7 @@
   margin: 0;
   padding: 0 2px;
   font-size: 12px;
-  color: #9333ea;
-}
-
-[data-theme='dark'] .prompt-panel__changes {
-  color: #cba6f7;
+  color: var(--accent);
 }
 
 .prompt-panel__warn {
