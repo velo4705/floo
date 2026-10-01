@@ -57,6 +57,7 @@ import FlooNode from '../nodes/FlooNode'
 import { DrawLayer } from './DrawLayer'
 import { ColorPicker } from './ColorPicker'
 import { FlooEdge, type FlooEdgeData } from './FlooEdge'
+import { GitHubStar } from './GitHubStar'
 import { ShapesMenu } from './ShapesMenu'
 import { PromptPanel } from './PromptPanel'
 import './FlowEditor.css'
@@ -155,6 +156,8 @@ type ActionIconName =
   | 'upload'
   | 'contrast'
   | 'trash'
+  | 'download'
+  | 'chevron'
 
 function ActionIcon({ name }: { name: ActionIconName }) {
   return (
@@ -215,6 +218,18 @@ function ActionIcon({ name }: { name: ActionIconName }) {
           <path d="M4.5 15.5v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3" />
         </>
       )}
+      {name === 'download' && (
+        <>
+          <path d="M12 4.5V16" />
+          <path d="M7.5 11.5 12 16l4.5-4.5" />
+          <path d="M4.5 15.5v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3" />
+        </>
+      )}
+      {name === 'chevron' && (
+        <>
+          <path d="M9.5 5.5 16 12l-6.5 6.5" />
+        </>
+      )}
       {name === 'contrast' && (
         <>
           <circle cx="12" cy="12" r="8.5" />
@@ -254,15 +269,24 @@ function FlowEditorInner() {
   const [layingOut, setLayingOut] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [dockMenu, setDockMenu] = useState<DockMenu>(null)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const dockRef = useRef<HTMLDivElement>(null)
+
+  const closeDockMenu = useCallback(() => {
+    setDockMenu(null)
+    setExportMenuOpen(false)
+  }, [])
 
   useEffect(() => {
     if (!dockMenu) return
     const onPointerDown = (e: PointerEvent) => {
-      if (!dockRef.current?.contains(e.target as Node)) setDockMenu(null)
+      if (!dockRef.current?.contains(e.target as Node)) closeDockMenu()
     }
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDockMenu(null)
+      if (e.key === 'Escape') {
+        if (exportMenuOpen) setExportMenuOpen(false)
+        else closeDockMenu()
+      }
     }
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
@@ -270,7 +294,7 @@ function FlowEditorInner() {
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [dockMenu])
+  }, [dockMenu, exportMenuOpen, closeDockMenu])
 
   useEffect(() => {
     if (!pickerOpen) return
@@ -904,7 +928,7 @@ function FlowEditorInner() {
             <button
               type="button"
               className="floo-dock__btn"
-              onClick={() => setDockMenu(dockMenu === 'more' ? null : 'more')}
+                onClick={() => (dockMenu === 'more' ? closeDockMenu() : setDockMenu('more'))}
               aria-expanded={dockMenu === 'more'}
               aria-haspopup="menu"
               aria-label="More options"
@@ -917,7 +941,7 @@ function FlowEditorInner() {
                 className="floo-dock__menu floo-dock__menu--more"
                 role="menu"
                 aria-label="More options"
-                onClick={() => setDockMenu(null)}
+                onClick={closeDockMenu}
               >
                 <button
                   type="button"
@@ -949,35 +973,70 @@ function FlowEditorInner() {
                   <ActionIcon name="layout" />
                   {layingOut ? 'Laying out…' : 'Auto-layout'}
                 </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="floo-sidebar__btn floo-sidebar__btn--busy"
-                  onClick={() => void exportImage('png')}
-                  disabled={isCanvasEmpty || exporting}
-                >
-                  <ActionIcon name="png" />
-                  {exporting ? 'Exporting…' : 'Export PNG'}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="floo-sidebar__btn floo-sidebar__btn--busy"
-                  onClick={() => void exportImage('jpeg')}
-                  disabled={isCanvasEmpty || exporting}
-                >
-                  <ActionIcon name="jpg" />
-                  Export JPG
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="floo-sidebar__btn"
-                  onClick={exportJson}
-                >
-                  <ActionIcon name="braces" />
-                  Export JSON
-                </button>
+                <div className="floo-sidebar__sub">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-haspopup="true"
+                    aria-expanded={exportMenuOpen}
+                    className="floo-sidebar__btn floo-sidebar__btn--parent"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setExportMenuOpen((v) => !v)
+                    }}
+                  >
+                    <ActionIcon name="download" />
+                    Export…
+                    <ActionIcon name="chevron" />
+                  </button>
+                  {exportMenuOpen && (
+                    <div
+                      className="floo-sidebar__submenu"
+                      role="menu"
+                      aria-label="Export format"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="floo-sidebar__btn floo-sidebar__btn--busy"
+                        onClick={() => {
+                          closeDockMenu()
+                          void exportImage('png')
+                        }}
+                        disabled={isCanvasEmpty || exporting}
+                      >
+                        <ActionIcon name="png" />
+                        PNG
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="floo-sidebar__btn floo-sidebar__btn--busy"
+                        onClick={() => {
+                          closeDockMenu()
+                          void exportImage('jpeg')
+                        }}
+                        disabled={isCanvasEmpty || exporting}
+                      >
+                        <ActionIcon name="jpg" />
+                        JPG
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="floo-sidebar__btn"
+                        onClick={() => {
+                          closeDockMenu()
+                          exportJson()
+                        }}
+                      >
+                        <ActionIcon name="braces" />
+                        JSON
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <label
                   className="floo-sidebar__btn"
                   role="menuitem"
@@ -995,6 +1054,7 @@ function FlowEditorInner() {
                     }}
                   />
                 </label>
+                <div className="floo-sidebar__sep" role="separator" />
                 <button
                   type="button"
                   role="menuitem"
@@ -1018,6 +1078,7 @@ function FlowEditorInner() {
             )}
           </div>
         </div>
+        <GitHubStar show={nodes.length > 0} />
         <PromptPanel nodes={nodes} edges={edges} drawings={drawings} onApplyGraph={applyGraph} />
       </div>
     </div>

@@ -392,6 +392,45 @@
   color: #dc2626;
 }
 
+/* Splits the More flyout into actions and preferences, so the destructive
+   Clear at the bottom isn't read as another export. */
+.floo-sidebar__sep {
+  height: 1px;
+  margin: 5px 0;
+  background: var(--border-soft);
+}
+
+/* Export… and its format list. The wrapper is the positioning context, so the
+   panel can hang off the trigger's right edge without a portal. */
+.floo-sidebar__sub {
+  position: relative;
+}
+
+.floo-sidebar__submenu {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: calc(100% + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 148px;
+  padding: 6px;
+  border: 1px solid var(--border-control);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.18);
+}
+
+[data-theme='dark'] .floo-sidebar__submenu {
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.5);
+}
+
+/* Keeps the icon and label together on the left, chevron hard right. */
+.floo-sidebar__btn--parent > svg:last-child {
+  margin-left: auto;
+}
+
 .floo-sidebar__btn--danger:hover:not(:disabled) {
   border-color: #dc2626;
   color: #b91c1c;
@@ -1081,6 +1120,22 @@
   outline: none;
 }
 
+/* React Flow's dark colourMode sets --xy-edge-stroke-default to #3e3e3e,
+   which is ~1.2:1 against floo's dark canvas (#313244) - effectively
+   invisible. The PNG export inlines that same computed stroke, so the
+   exported image is unreadable too. --text-muted gives ~5.3:1 in light and
+   ~5.6:1 in dark, clearing the 3:1 WCAG bar for graphical objects.
+
+   Selection needs its own rule: React Flow's is more specific but resolves to
+   #727272 in dark, which is still short of 3:1. */
+.react-flow__edge-path {
+  stroke: var(--text-muted);
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent);
+}
+
 /* Edge labels (Yes/No/… and user-entered connection labels).
    React Flow draws default labels in the edges SVG, which sits *under* the
    node layer — so a label mid-path behind a shape was unreadable. Our
@@ -1296,4 +1351,89 @@
 /* React Flow dark tweaks (colorMode handles most chrome) */
 [data-theme='dark'] .react-flow__minimap {
   background: var(--bg-overlay);
+}
+
+/* A nudge toward starring, shown once there's something worth sharing.
+   bottom: 40px clears the React Flow attribution, which sits in a
+   bottom-right panel with a 15px margin and is ~16px tall.
+
+   It's a drawer, not a one-shot prompt: the chevron collapses the label to a
+   star handle and expands it again, so the ask is never lost for good.
+   At rest this is a bare caption, not a control - the canvas belongs to the
+   user's drawing, and a permanent pill in the corner reads as foreign chrome.
+   The surface arrives on hover/focus so it still looks tappable. The border
+   is an inset shadow rather than `border` so revealing it can't shift layout. */
+.floo-star {
+  position: absolute;
+  z-index: 11;
+  right: 14px;
+  bottom: 38px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 4px 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s,
+    color 0.15s;
+}
+
+.floo-star:hover,
+.floo-star:focus-within {
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-control);
+  color: var(--accent);
+}
+
+.floo-star__link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Collapsing the label is what makes it a drawer: max-width animates the row
+   closing, so the chevron slides left instead of the row snapping shut. */
+.floo-star__label {
+  max-width: 140px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    max-width 0.18s ease,
+    opacity 0.12s ease;
+}
+
+.floo-star.is-collapsed .floo-star__label {
+  max-width: 0;
+  opacity: 0;
+}
+
+.floo-star__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.floo-star:hover .floo-star__toggle,
+.floo-star:focus-within .floo-star__toggle {
+  opacity: 1;
+}
+
+.floo-star__toggle:hover {
+  background: var(--accent-soft);
+  color: inherit;
 }
